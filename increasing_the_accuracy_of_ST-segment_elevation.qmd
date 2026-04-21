@@ -73,10 +73,28 @@ format:
       formatting: preprint
       # model: 3p # Don't set a model with preprint
       cite-style: number
-editor: 
-  markdown: 
-    wrap: sentence
+      
+params:
+  eval_models: true
+  
+knitr:
+  opts_chunk: 
+    cache_comments: false
+    crop: true
+    
+execute: 
+  echo: false
+  warning: false
+  message: false
+  include: false
 ---
+
+```{r}
+#| label: setup
+
+library(tidyverse)
+```
+
 
 # Introduction
 
@@ -146,50 +164,444 @@ ST-segment elevation Myocardial Infarction (STEMI) is diagnostically defined as~
   at least 0.25~mV in males aged under 40 years, and at least 0.15~mV in females.
 \end{quotation}
 
-
 ## ST-Elevation Myocardial Infarction
+
+```{r}
+#| label: fig-ecg-signal-explainer
+#| include: true
+#| fig-cap: "Phases of the ECG: Using real ECG data from the V4 chest lead to illustrate the P-wave, the QRS complex, the ST-segment,the T-wave, and the J-point. In the experiment, participants were instructed to classify ECG signals such as these as `ST-elevation' or `No ST-elevation'. This particular signal does not show ST-elevation. Each small red square represents 40~milliseconds (ms) horizontally and 0.1~millivolts (mV) vertically. Each large red square represents 200~milliseconds horizontally and 0.5~millivolts vertically."
+
+knitr::include_graphics(path = "graphics/ecg-example.pdf", dpi = NA)
+```
+In this context, \emph{contiguous} refers to leads that represent
+adjacent anatomical areas. Figure~\ref{fig-ecg-signal-explainer}
+illustrates the different parts of a typical ECG signal, including
+the P-wave, QRS complex, ST-segment, J-point, and T-wave. In the context of
+ECG investigations, heart attacks featuring ST-segment
+elevation (STEMI) are differentiated from those where this elevation is
+absent (NSTEMI); the former is more severe, and so is studied in this work.
+Survival following a STEMI has improved substantially over the past few
+decades~\citep{pascual_2020, pedersen_2014, gale_2014}. Despite this,
+STEMI and other forms of MI remain a leading cause of mortality~\citep{moraes_2017, ibanez_2018} and lower Health-Related Quality of
+Life (HRQoL)~\citep{wang_2014, kang_2016, bahall_2018} worldwide.
+Generally, prompt diagnosis and treatment are crucial for reducing
+mortality, limiting the duration of a person's hospital stay, and for their
+prognosis following a STEMI event~\citep{ibanez_2018}. Any intervention
+that may improve clinicians' (and potentially patients') ability to
+quickly recognise STEMI is therefore worthy of study.
 
 ## ECG Interpretation
 
+ECG interpretation is a complex problem, even for clinicians with years
+of training~\citep{salerno_2003, cook_2020, rafie_2021}. In a clinical
+context, the heart activity taken from all 12 ECG leads is
+interpreted. Even recordings as short as 10~seconds (s) of
+heart activity information become complex data when taking into
+account 12 different signals, and clinicians are taught to make
+diagnoses based on the ensemble of information available~\citep{hampton_2024}.
+Nevertheless, single-lead views offer
+substantial amounts of information, and require far less time and
+training to be able to interpret; we focus on single-lead,
+single-heartbeat ECG data for the presented experiment with lay
+participants.
+
+When using ECG to help diagnose STEMI, the criteria are relatively
+simple; elevation in two contiguous leads at a certain point in the
+signal. Of course, this requires a huge amount of processing when
+examining a full 12-lead ECG, as elevation can occur in any single
+heartbeat over 12 different leads, and clinicians often work
+under substantial time pressure. %In addition to the amount of data that must be considered, actual ECGs are often noisy to the point of ambiguity.
+Over several studies, clinicians were reported as having an
+overall accuracy rating of around 70\%~\citep{mccabe_2013, veronese_2016} and low levels of interrater
+agreement, with a kappa value of 0.33 reported in McCabe et al.~\citep{mccabe_2013}. Studies have indicated that these issues may be
+due to difficulties in correctly identifying the J-point~\citep{carley_2002} or confusion that arises when the level of
+ST-elevation is very low~\citep{erling_2004}. While increased training
+improves accuracy on ECG interpretation paradigms~\citep{mccabe_2013, veronese_2016, cook_2020}, the fact remains that
+interpreting ECG is difficult, even for those whose speciality is
+cardiology and those with many years of training and experience.
+
 ## ECG Visualisation
+
+The way in which ECG data are presented
+to clinicians has changed little since the invention of the technique
+over a century ago~\citep{friedman_2024}; the quintessential form of the
+ECG, and the issues that clinicians face when engaging with it, remain
+much the same. ECGs are typically drawn on a Cartesian line graph with
+the signal voltage in millivolts on the \(y\)-axis and time in milliseconds (ms) on the
+\(x\)-axis. A background grid system is employed to aid interpretation;
+Figure~\ref{fig-ecg-signal-explainer} illustrates this system. Whether produced manually by a pen on
+grid paper, or drawn digitally by a computer, the resulting
+visualisation is essentially identical. Clinicians
+are expected to analyse the ensemble of ECG data together, and are not
+typically assisted by any visual aids, such as labels or markings, other than those that name the leads themselves and, if supported, computer-automated interpretations printed as text.
+
+Chest and limb leads have been combined separately into a pair of
+3-dimensional views of the heart's electrical activity by Chiang et al.~\citep{chiang_2001} and Heo et al.~\citep{heo_2020}; this technique has
+received some approval from clinicians based on polling~\citep{chiang_2001}, and has been used successfully in algorithmic
+classification paradigms~\citep{heo_2020, fang_2022, bortolan_2023}.
+Kors and van Herpern~\citep{kors_2008} and Wagner et al.~\citep{wagner_2008} have explored the theoretical use of ``inverted''
+(mirror image) ECG leads, finding mixed results with regards to 
+their benefit over traditional, 12-lead ECG. Perron et al.~\citep{perron_2006}, however, found that including 7 additional inverted leads provided benefits in terms of detecting artificially
+induced arterial blockage. Other visualisation techniques have included
+glyph-based interactive systems~\citep{xu_2018}, vectorial methods to
+illustrate the magnitude and direction of the electrical impulses of the
+heart~\citep{burch_1953, burch_1985, riera_2007, jaros_2019}, and spatial techniques
+that generate maps of electrical potentials across the body (Body Surface
+Potential Mapping or BSPM)~\citep{lux_1978, taccardi_1998}. These
+visualisation techniques, while sometimes useful for clinicians, are
+only ever considered as supplementary to traditional ECG visualisations~\citep{bond_2013}; their advantage is that they increase the amount
+and/or the complexity of the data displayed, meaning such techniques
+would not be suitable for those with no experience interpreting ECGs.
+The visualisation techniques presented in this work are designed to
+increase the salience of relevant visualisation features, as opposed to
+simply adding information.
 
 ## Using Clinical Rules to Guide Visualisation Design
 
+Clinical decision rules and protocols can be used to guide the design of
+healthcare data visualisations by translating clinical knowledge into structured
+representations. Such rules commonly take the form of thresholds, scoring systems,
+or rule-based pathways that support recognition of abnormal states, escalation of care,
+and coordination of clinical response; subsequently informing clinical 
+decisions~\cite{sutton_overview_2020}. In medical informatics, there is growing recognition 
+of the need for effective data visualisations to overcome information overload and enable
+users to recognise clinically meaningful changes more effectively than when using raw data alone~\citep{aigner_2008}. Similarly, visual aggregation and structured timelines can promote more consistent interpretation of complex health data~\cite{ledesma_health_2019} and enhance situational awareness (SA) in clinical practice~\citep{dixit_2020}. 
+
+However, the effectiveness of such visualisations is closely tied to how information is visually encoded and subsequently interpreted. Visual design choices directly shape perceptual processing and reasoning, meaning that poor encoding can undermine decision-making even when underlying data or logic are sound~\cite{ware2012}. Design studies in applied visualisation further emphasise that mismatches between visual representations, user tasks, and context of use frequently lead to limited adoption or misuse~\cite{sedlmair_design_2012}.
+
+Visualisations are also increasingly used to inform lay audiences about their health data and facilitate their understanding of complex information~\citep{arcia_2024}. In these settings, decision rules and algorithmic assessments are often embedded within visual summaries, indicators, or feedback messages, shaping how users perceive their health status and the actions they choose to take. This further reinforces the importance of aligning visualisation design with the needs, expectations, and capabilities of specific audiences.
+
+Clearly defined communication goals, the guiding of design through taxonomies, and
+evaluation based on audience-specific outcomes are essential for the
+successful design of visualisations for any audience~\citep{ancker_2024}. 
+These principles emphasise that the success of clinical decision rules and protocols cannot be assessed independently of their visual representation, and that effective visualisation plays a central role in determining whether such systems support understanding, trust, and appropriate action.
+
 ## Future Forward: Wearable Health Technologies
+
+A further driver for novel visualisations and the need for health data to be easily understood is the rapid adoption of wearable health technologies~\citep{ma_making_2025, hicks_best_2019}. The recently released NHS 10 Year Health Plan highlights a move away from hospital to community care, a shift from analogue to digital, and an emphasis on prevention over treatment~\citep{dhsc_2025}. The provision of wearable health monitors, such as smartwatches, fitness bands, and intelligent jewellery, is seen as central to the delivery of this ambitious plan. Most of these devices
+now include ECG capabilities and allow their wearers to record single,
+and sometimes multi-lead, ECGs. Some devices now incorporate complex
+algorithms capable of warning users if their vital signs deviate from
+normal thresholds. Whilst mostly focused on the detection of
+arrhythmias (e.g., Atrial Fibrillation~\citep{abdelrazik_2025}), there
+is ongoing exploration of their role in acute coronary syndromes~\citep{choi_2025, neri_2023}. Wearables are able to support patient care
+wherever the patient happens to be situated, facilitating diagnostics
+beyond the hospital and enabling a more comprehensive view of a
+patient's health. They can further empower their users to take on a more
+active role in their healthcare by providing data and personalised
+feedback, and encouraging self-monitoring, adherence to healthy
+lifestyles, and informed dialogues with care providers~\citep{ehizogie_2024}. Wearables, and digital technology more generally,
+can also contribute to the health literacy of young people and their
+understanding about their own health~\citep{goodyear_2019}. While live
+monitoring of ECG data from consumer-grade wearable devices is not yet a
+reality, its inevitability, combined with the wider benefits conferred
+by constant monitoring and the democratisation of healthcare,
+indicate the benefits of studying ECG visualisation with lay people as well as clinical experts.
 
 # Materials and Methodology
 
+This section outlines our overall research methodology, encompassing the algorithm development and visualisation design, the collection of clinician feedback on the proposed visualisations, and the lay‑person experiment.
+
 ## Algorithm Development
+
+The codebase of our full pipeline\footnote{\url{https://github.com/ECG-X/ECG-X_ST-segment-feature-detection-and-visualisation}} is openly available on GitHub under a dual-licensing model: released for non-commercial use under the Creative Commons Attribution‑NonCommercial‑ShareAlike 4.0 International Licence (CC BY‑NC‑SA 4.0), with alternative commercial licensing available upon request.
+We describe the assumptions made and discuss our algorithm in detail, from data preparation and preprocessing to how we detect crucial ECG features for ST-segment analysis.
+This includes a newly introduced method to correct the duration of an ST-segment and the reasons behind our visualisation design.
 
 ### Technical Assumptions
 
+As our algorithm was intentionally designed to produce novel, foundational, human-understandable visualisations to facilitate the interpretation of ECGs, the following assumptions were made:
+
+\begin{itemize}
+    \item Given the complexity and variety of raw ECG signals, we acknowledge that our pipeline is tuned to suit the PTB Diagnostics database~\cite{ptb} specifically, containing clinically labelled, high-quality signals.
+    \item We focus on the human-algorithm interaction aspect of algorithm development, using well-known, standard open-source processing packages and algorithms for ECG signal processing.
+    \item The proposed visualisation pipeline prioritises perceptual clarity and interpretability over optimal representation of physiological states. Our contribution lies in novel \textit{clinical rule-based visualisations} intended to standardise visual representation rather than to model underlying electrophysiology with maximal accuracy. This design choice reflects the development focus on human interpretation and decision support rather than physiological measurement accuracy (a common trade‑off in CIE design rather than a limitation specific to our method).
+\end{itemize}
+
 ### Data Preparation
+
+Raw ECG data were acquired from the clinically-validated PTB Diagnostic ECG Database~\cite{ptb}, which is openly available and can be downloaded from PhysioNet.
+Prior to any signal processing, the raw data were converted from WaveForm DataBase (WFDB) format to CSV for ingestion into our \textit{ST-segment feature detection and visualisation} pipeline.
+From the 549 available datasets downloaded and converted to CSV, we grouped them into three categories based on the diagnosis (i.e. reason for admission) provided by the database.
+There were 80~ECG recordings classified as \textit{healthy control}, 368 \textit{myocardial infarction}, and the \textit{other} remaining 101 includes other heart conditions (e.g., cardiomyopathy, bundle branch block, etc.) and miscellaneous.
+We selected data from the \textit{healthy control} and the \textit{myocardial infarction} group as input, as they most likely contain signals without and with ST-elevation, respectively.
+Each recording is represented by a CSV file containing data, including all of the leads provided by the database, from the same recording session.
+An ST-segment lasts approximately 80~ms to 120~ms~\cite{sattar2023}, and since the ECG datasets have varying durations, we configured our pipeline to sample the first 30~s from each recorded signal.
+Each signal therefore has approximately 39 potential ST-segments (based on the mean real-world heart rate of 79.1 beats per minute (bpm)~\cite{Avram2019}) available for analysis and can be visually annotated with our visualisations.
 
 ### Data Preprocessing
 
+A flowchart depicting our full pipeline is shown in Figure~\ref{fig:vis-pipeline}. We utilised SciPy~\cite{2020SciPy-NMeth} and NeuroKit2~\cite{Makowski2021neurokit}, two openly available Python libraries, for signal preprocessing tasks.
+The first two steps of preprocessing aimed to reduce noise while preserving the signal morphology.
+
+```{r}
+#| label: fig:vis-pipeline
+#| include: true
+#| fig-cap: "Computational pipeline for ST-segment features detection and visualisation: Data preprocessing (in yellow) includes applying a high pass and a bandpass filter. Some processing is carried out in segments, each with a duration of the segment time window defined in configuration. Steps completed utilising NeuroKit2 functions (circled in brown), identify features relevant to ST-elevations (in blue). The four distinctive visualisations (in green) are plotted on a red grid background with the ECG signal (in pink)."
+
+knitr::include_graphics(path = "graphics/vis_pipeline.pdf", dpi = NA)
+```
+
+Artefacts caused by respiration, movement, electrode impedance, and electrical interference~\cite{Luo2013} distort ECG signal quality~\cite{Zhang2025} and hinder feature detection relevant to ST-segment interpretation and analysis~\cite{Lenis2017}.
+To correct baseline wander, we applied a Butterworth~\cite{butterworth1930} high pass filter, chosen for its accuracy and computational efficiency in medical applications~\cite{Lenis2017}.
+A cut-off frequency at 0.5 Hertz (Hz)~\cite{Zhang2025, Kher2019, Kligfield2007} removed low frequency noise and shifted the signal vertically to centre around zero.
+Then, a second Butterworth bandpass filter (0.5~Hz to 50~Hz) was used to reduce high frequency noise due to electrical (e.g., powerline) and myoelectric interferences~\cite{Zhang2025, Kher2019, Chatterjee2020}, improving signal clarity.
+Deflections from the raw signals are preserved in the filtered signals, which form the basis of the ECG tracings (with and without visualisations) used in the online experiment with lay participants.
+
+Our third step utilised NeuroKit2 to identify and invert any \textit{inverted signals} (an artefact due to electrode placement during the recording session or pathological causes~\cite{Rosen2014, Rosen2014a, Glancy2014}).
+Signals identified to have predominantly upright features with positive deflection were kept unchanged.
+This is to support detecting ECG waveform features, specifically those relevant to an ST-segment.
+
 ### Pipeline Configuration and Data Quality Check
+
+The pipeline is built to support the 12 conventional leads routinely used in clinical practice~\cite{ashley2004}, where the leads are selectable through configuration for processing.
+The algorithm is also capable of applying the threshold line based on the ST-elevation criteria depending on the age and sex of the patient.
+As our online experiment with lay participants excluded evaluating leads V2 and V3 (see Section~\ref{sec-method-online-exp}), the pipeline was configured accordingly.
+
+ECG signals from the PTB Diagnostic ECG database were measured within the range of $\pm 16.384$~mV~\cite{ptb}, yet ECG amplitudes are generally below 5~mV~\cite{Xie2020}.
+For quality control and to ensure the output ECG images have a consistent height regardless of signal amplitude, we adopted a conservative approach by configuring the pipeline to discard datasets with maximum amplitudes outside $\pm 3$~mV, as well as signals shorter than 30~s.
+Excluding leads V2 and V3, we determined 72.5\% (58 out of 80 recordings) and 64.1\% (236 out of 368 recordings) of the datasets from the \textit{healthy control} and the \textit{myocardial} group, respectively, have maximum amplitudes within $\pm$3~mV.
+In addition, to streamline the remaining steps, we partitioned the 30~s signal by a configurable time segment window (e.g., 5~s) to process.
+For the final output, the number of ECG images produced per signal for a lead is dependent on the specified time segment window and the total duration of a signal sampled for input.
 
 ### Feature Detection
 
+Recognising ST-elevation requires analysing the signal against the clinically defined threshold level, an electrical potential displacement from the signal baseline, and can be computed once the baseline is established.
+The baseline, also known as the isoelectric line, represents net zero electrical potential~\cite{Strauss2021}. 
+As our filtered signal already centre vertically around zero, we utilised NeuroKit2 to remove the linear trend and define the resulting signal's mean as our baseline.
+Although it approximates the isoelectric line, we acknowledge that our custom baseline may be skewed towards the side with greater cumulative deflection in the waveform.
+
+An ST-segment, shown in Figure~\ref{fig-ecg-signal-explainer}, is defined by the interval from the end of a QRS complex to the start of the following T-wave.
+It is typically an isoelectric period near the baseline or may slope slightly upward in a normal state~\citep{ashley2004, Strauss2021}.
+We utilised NeuroKit2 to identify prominent features of each signal, prepared by the steps discussed in Section~\ref{sec-data-preprocess}.
+Implementation via NeuroKit2 includes the Martinez et al. method~\cite{martinez2004} to identify R-peaks and the discrete wavelet transform (DWT) method to identify onsets and offsets of relevant waves, including the QRS complex and the T-wave, to determine an ST-segment and its J-point.
+
+R-peaks are typically the most prominent feature in an ECG tracing and can be used to compute the average heart rate.
+We achieved this by taking the mean of the interval between two consecutive R-peaks ($\overline{RR}$) using data from lead III.
+
 ### Novel Correction of ST-segment Calculations
+
+As previously highlighted, accurately defining the J-point can be clinically challenging~\cite{carley_2002}, and there is long-standing disagreement and varying practice in defining the ST-segment and the diagnostic window based on it to detect ST-segment elevation~\cite{man_2017}. A fixed time cut-off, such as 40~ms, 60~ms, or 80~ms after the J-point, have been widely used, yet their physiological validity is contested and diagnostic performance is highly sensitive to chosen offsets~\cite{lindow_2020}. As ventricular repolarisation shortens at high heart rates and lengthens at low heart rates through rate-dependent action potential adaptation, a fixed delay from the J-point does not consistently capture the same repolarisation phase across recordings. As a result, a fixed cut-off to define the  diagnostically-important part of the ST-segment may introduce heart-rate--dependent distortions in both visual and algorithmic analysis.
+
+Given these limitations and driven by the need to define a diagnostic window of the ST-segment for one of our visualisation types introduced in Section~\ref{sec-design-vis}, we developed a novel algorithm to calculate the ST-segment, $STc$ (ST corrected), inspired by Bazett's formula to correct calculation of the QT interval~\citep{bazett}, which is calculated as:
+%
+\begin{equation*}
+STc = \frac{ST}{\sqrt{\overline{RR}}},
+\end{equation*}
+%
+where $STc$ is in milliseconds, $ST$ is the duration between the detected J-point and the T-wave onset (ST-segment) in milliseconds, and the average R-peak to R-peak interval $\overline{RR}$ in seconds.
+
+Although $STc$ uses a Bazett‑type correction where 60~bpm serves as the mathematical reference point ($RR = 1$~s), the algorithm does not assume that all patients should physiologically behave as if they were at 60~bpm. Rather, 60~bpm is simply the calibration point that removes the heart‑rate--dependent distortion. $STc$ therefore creates a heart‑rate--normalised window that aligns with the same repolarisation phase at any heart rate, without altering the ECG signal or imposing a specific physiological state. The resulting $STc$ provides a cycle-length--normalised, physiologically coherent window that is comparable across beats, patients, and varying heart rates. Unlike fixed cut-offs, which risk sampling different electrophysiological phases depending on heart rates, $STc$ ensures that the analysis window stays consistent. In practice, $STc$ defines the duration of the ST-segment, determining its endpoint relative to the J-point. The resulting heart-rate--normalised diagnostic window is overlaid in the time domain as a visualisation on the filtered signal, whose temporal structure remains heart-rate--dependent.
+
+By combining morphology‑based delineation with heart‑rate correction, $STc$ provides a robust alternative to conventional post--J‑point offsets and may yield a more reliable and interpretable framework for visualising and analysing ST‑segment behaviour in both clinical and computational applications.
 
 ### Visualisations Design and Algorithm
 
+Based on the features detected by the pipeline, visualisations were applied (i.e. visually annotated) on top of the filtered ECG signal.
+The visualisations were designed to increase the salience of the visual features relevant to ST-segment elevation analysis and the subtasks outlined in Section~\ref{sec-method-online-exp}.
+An example of each type of visualisation is shown in Figure~\ref{fig:vis-examples}.
+To reduce the cognitive load of ECG interpretation tasks, we applied strategies taken from Cognitive Load Theory (CLT)~\citep{paas_2020}.
+After iterative cycles of discussion regarding visualising clinical rules for ST-elevation during the Responsible Research and Innovation (RRI) workshops, we decided upon a final set of three visualisation types presented in this study.
+
+All three visualisation types feature a dashed threshold line at 0.1~mV above the baseline. 
+The universal inclusion of this line was due to reports that very low levels of ST-elevation may be responsible for disagreements between clinicians regarding the presence or absence of ST-elevation on an ECG~\citep{erling_2004}.
+However, a threshold-line--only design, or one combined with the baseline, was ruled out during the RRI workshops as they were shown to be ineffective, leading to interpretative uncertainty.
+In addition to the threshold line, we took two different approaches to address another major source of potential disagreement amongst clinicians regarding ST-elevation: the location of the J-point~\citep{carley_2002}. 
+The first approach, \emph{J-point Marker + Threshold Line}, employs a green marking circle highlighting the J-point on the ECG signal. 
+The colour was chosen to be visible to those with colour-blindness against the red grid background.
+The second approach, \emph{Shading + Threshold Line}, effectively removes viewers' obligation to find a J-point, instead using black coloured shading to display the proportion of the ST-segment sitting above the threshold line. 
+The final visualisation type, \emph{Shading + Threshold Line + J-point Marker}, combined these approaches.
+
+```{=latex}
+\begin{figure}
+    \begin{subfigure}[t]{0.24\textwidth}
+      \includegraphics[width=\linewidth]{graphics/nvis_0446_v4_2_mi_st.png}
+      \caption{Visualisation-absent: unannotated ECG.}
+    \end{subfigure}
+\hfill
+    \begin{subfigure}[t]{0.24\textwidth}
+      \includegraphics[width=\linewidth]{graphics/JT_0446_v4_2_MI_st.png}
+      \caption{J-point Marker + Threshold Line.}
+    \end{subfigure}
+\hfill
+    \begin{subfigure}[t]{0.24\textwidth}
+      \includegraphics[width=\linewidth]{graphics/ST_0446_v4_2_MI_st.png}
+      \caption{Shading + Threshold Line.}
+    \end{subfigure}
+\hfill
+    \begin{subfigure}[t]{0.24\textwidth}
+      \includegraphics[width=\linewidth]{graphics/STJ_0446_v4_2_MI_st.png}
+      \caption{Shading + Threshold Line + J-point Marker.}
+    \end{subfigure}
+  \caption{Stimuli Examples: examples of the stimuli used in the experiment in visualisation-absent and the three visualisation-present conditions. This ECG signal is taken from the V4 chest lead and has an elevated ST-segment.}
+  \label{fig:vis-examples}
+\end{figure}%
+```
+
 ## Part I: Clinical Validation of Visualisations
+
+Building upon our RRI and stakeholder engagement work conducted throughout the ECG-X project\footnote{www.ecgx.co.uk}, we conducted a clinical validation study focused on a qualitative evaluation of the usefulness and correctness of our visualisation designs by clinical experts. Participants across four specialties (Anaesthesia, Critical Care, Emergency Medicine, and Cardiology) were convenience sampled~\cite{mason_qualitative_2018} as part of their ongoing stakeholder engagement in the project. 
+We aimed to recruit at least five clinicians, a common threshold for formative medical device and software evaluation~\citep{FDA2016HumanFactors}, and our sample size followed established human-factors principles where small expert samples are appropriate for formative, low risk evaluations~\citep{IEC}. All clinicians were based in the UK at the time of evaluation. These specialties were selected after a series of RRI workshops, which identified these groups as regularly interpreting ECGs. 
+Based on the Ethics Decision Tool at the University of Manchester and the NHS Health Research Authority Ethics Toolkit~\cite{nhs_ethics}, the study was exempt from ethical review as we solely consulted with professionals (i) strictly within their professional remit, and (ii) did not collect any personally identifiable information apart from those on the exempt list, i.e. names, professional roles, signed consent, and audio recordings.
+
+The evaluations were undertaken between November 2025 and January 2026 via the video conferencing software Microsoft Teams~\cite{ms-teams} (video function disabled). Participants were included on the basis that they are currently employed clinicians with ``experiential relevance''~\cite[p. 124]{rudestam_surviving_2015} in terms of ECG usage and clinical knowledge. 
+As we aimed to generate data that establishes a representational account of participants’ professional roles, we refrain from including the names of clinicians. 
+All participants received a Participant Information Sheet (PIS) prior to the interview and provided informed consent. Participants were further given the option of withdrawing data up to 14~days after the date of participation, and received a shopping voucher worth Fifteen Pounds Sterling (GBP or £) as a token of appreciation for their time investment.
+
+The evaluations followed a semi-structured guide~\cite{lindlof_qualitative_2017} based on generative questions~\cite{rubin_qualitative_2005} to encourage extensive replies in an open format. The guide was developed during RRI workshops and is grounded in practice-based approaches of Human-Computer Interaction (HCI) to enable investigation of participants' lived experiences with technologies~\cite{kuutti_turn_2014}. 
+The guide introduced participants to our visualisations, explained how they were designed, and detailed that they are explainable based on clinical rules. We then asked about their clinical correctness, usefulness, and clinicians' preferences, followed by considerations of how they would use them in their clinical practice.
+
+All materials, such as the Ethics Outcomes Letters, validation study guide, and transcripts are openly accessible and were deposited on Figshare with consent from participants\footnote{\url{https://doi.org/10.48420/31042243}}.
 
 ## Part II: Online Experiment with Lay Participants
 
+Our goal was to design visualisations based on clinical rules to enable
+intuitive visual identification of ST-elevation -- as commonly prevalent in STEMI
+-- on ECGs. To recapitulate, that is an elevation at the J-point of
+at least 0.1~mV in any two contiguous leads except V2 and V3. In leads
+V2 and V3, this elevation must be at least 0.2~mV in males aged 40~years or
+older, at least 0.25~mV in males aged under 40~years, and at least
+0.15~mV in females. Motivated by previous work~\citep{alahmadi_2023}, we conducted rounds of RRI workshops with lay people, clinicians regularly interpreting ECGs, and HCI experts to draft the following research pathway.
+
+Since we specifically recruited lay participants who were unfamiliar with ECGs, simply asking participants to spot a STEMI on an ECG, whether with or without the added visualisation, would be a task with a high intrinsic cognitive load. Instead, we segmented this task into smaller, more easily achievable steps. Notably, we:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  Solely focused on ST-elevation without introducing the concept of STEMI.
+\item
+  Only used leads where the 0.1~mV rule applies.
+\item
+  Only showed single-heartbeat single-lead images.
+\item
+  Removed the necessity to understand the contiguity rule and examine
+  multiple leads.
+\end{enumerate}%
+
+Participants were trained exclusively on these principles, and were not introduced to concepts or rules unnecessary for the completion of the classification task. 
+The task that participants performed can essentially be broken down into a pair of subtasks: 1) locate the J-point, and 2) check for the ST-elevation, \emph{in purely descriptive terms based on the ECG images shown}.
+
 ### Crowdsourcing
+
+There is precedent for work investigating ECG interpretation to feature
+lay participants~\citep{alahmadi_2020}, and for crowdsourcing to be used
+in health research~\citep{crequit_2018}. These concepts have intersected
+in the context of crowdsourced data labelling or annotation~\citep{zhu_2014, bahrami_2021, bahrami_2024}. The work
+presented here takes influence from psychophysics and visualisation
+design studies that extensively employ crowdsourcing. Crowdsourcing
+affords the rapid collection of large amounts of data, and is
+considerably less expensive than traditional, in-person testing. Data
+quality and demographics issues have caused concern in past research~\citep{chmielewski_2020, peer_2021}, so here we
+follow published guidelines~\citep{peer_2021} to ensure the collection
+of high-quality data. The Prolific platform~\citep{prolific} is used,
+along with strict pre-screening criteria; participants were required to
+have previously successfully completed at least 100 Prolific studies,
+and were required to have been accepted on at least 95\% of their
+previous submissions.
 
 ### Open Research
 
+This project was conducted according to the principles of open and
+reproducible research~\citep{ayris_2018}. Hypotheses and analysis plans
+were pre-registered with the Open Science Framework (OSF)\footnote{https://osf.io/v6tjp}.
+All data and analysis code are maintained in a GitHub repository\footnote{\url{https://github.com/ECG-X/increasing_the_accuracy_of_ST-segment_elevation}}, which also contains instructions for
+building a Docker container to reproduce the computational environment
+in which the paper was written. This facilitates full replication of
+figures, analyses, and the paper itself. 
+The algorithm to create ECG images with visualisations is also accessible (see Section~\ref{sec-vis-alg-dev}).
+
 ### Modelling
+
+Our primary outcome measure -- participants' performance on the
+ST-elevation classification task -- is binary. We hence built Generalised
+Linear Mixed Models (GLMMs) of the binomial family to analyse our data.
+As opposed to manually specifying random effects for models, the
+\texttt{buildmer} package (version 2.12~\citep{voeten_2025}) was used in
+R (version 4.5.1~\citep{rcore}) to automate model syntax selection using
+stepwise regression. On provision of a maximal model, \texttt{buildmer}
+identifies the most complex model that successfully converges. The
+\texttt{lme4} package (version 1.1-37~\citep{bates_2015}) supplies the
+\texttt{glmer()} function to \texttt{buildmer} that constructs the GLMM.
 
 ### Stimuli
 
+Our stimuli were designed based on the visualisation pipeline outlined in Section~\ref{sec-vis-alg-dev} and the core principles of our experiment described in Section~\ref{sec-method-online-exp}. 
+The stimuli used in the experiment consisted of static ECG tracings representing single heartbeats from any of the included leads (I, II, III, aVR, aVL, aVF, V1, V4, V5, and V6), displayed either with or without visualisations (see Figure~\ref{fig:vis-examples}). ECG segments were sampled to illustrate the presence or absence of ST-elevation.
+
+Several assumptions underlie the construction of our stimuli for experimental purposes.
+First, stimuli assume sufficient signal quality for visually identifiable ECG landmarks, including baseline, J-point, and ST-segment, such that participants can reasonably perform the classification tasks. This was ensured by manually curating and verifying every stimulus included in the experiment.
+The stimuli \textit{without} and \textit{with} ST-elevation were selected only from the \textit{healthy control} and \textit{myocardial infarction} groups, respectively.
+Second, by presenting single-lead, single-heartbeat images, the stimuli deliberately abstract away temporal context, beat-to-beat variability, and multi-lead information, allowing the experimental set-up to focus specifically on perceptual interpretation of ST-segment elevation rather than clinical diagnosis.
+Third, stimuli assume that static representations are an appropriate proxy for assessing visual interpretability by lay people, despite ECG interpretation in practice using longer durations and multi-lead review.
+Finally, visual parameters such as scaling, grid layout, and threshold indicators, as well as image size, were held constant across conditions to ensure that any observed differences in performance could be attributed to the presence or absence of visual cues rather than differences in stimulus presentation.
+
+These assumptions reflect the controlled nature of the experiment to test the usefulness of visualisation -- to facilitate the interpretation of ST-segment elevation -- and to support systematic comparison of our conditions, rather than to replicate the complexity of real-world ECG interpretation.
+
 ### Procedure
 
+The experiments were built using PsychoPy~\citep{peirce_2019} and hosted on~\url{Pavlovia.org}. 
+Participation was permitted using laptop or desktop computers only. 
+A flowchart
+depicting the experimental procedure is presented in
+Figure~\ref{fig:exp-flowchart}.
+Participants were first shown the PIS and were asked to provide consent via key presses in response to consent statements. 
+They provided their age in a free text box, followed by their gender identity. 
+Participants were then taken to a 4-minute training module. 
+This consisted of a series of slides outlining the general form of ECG tracings, the rules that define ST-elevation within the experimental context (see Section~\ref{sec-stemi} and Section~\ref{sec-method-online-exp}), and an overview of the particular visualisation condition that they were assigned to.
+Between visualisation conditions, the training modules differed only in
+terms of their final slide instructing participants how to use the
+particular visualisation. The training slides are included in the
+supplemental material associated with this paper. Following the training
+module, participants were given four practice trials. These were
+identical to the experimental trials, but provided feedback to
+participants that informed them \emph{why} they were correct or
+incorrect. All four practice trials featured the visualisation, with two
+displaying ST-elevation present and two displaying ST-elevation absent.
+
+```{r}
+#| label: fig:exp-flowchart
+#| include: true
+#| fig-cap: "Experimental Flowchart: Flowchart depicting the stages of the experimental procedure."
+
+knitr::include_graphics(path = "graphics/ECG_exp_flowchart.pdf", dpi = NA)
+```
+
+Prior to beginning the experimental trials, participants were reminded
+to press the ``ST-Elevation'' button if they believed the ECG showed
+ST-elevation, and to press the ``No ST-Elevation'' button if they did
+not believe the ECG showed ST-elevation. They were warned that the
+positions of the buttons would change throughout the experiment.
+Participants then worked through a series of 124 trials. Each trial was
+preceded by text that either read ``Please look at the
+following ECG and decide if ST-elevation is present.'' (${n = 116}$,
+black text, experimental trials) or ``Please IGNORE the following ECG
+and click on the centre of the visualisation.'' (${n = 8}$, red text,
+attention check trials). There was no time limit per trial. An example of an
+experimental trial can be seen in Figure~\ref{fig-example-trial}.
+Participants who successfully completed the experiment were paid pro rata through Prolific at a rate of £6 per hour.
+
+```{r}
+#| label: fig-example-trial
+#| include: true
+#| fig-cap: "Example Experimental Trial: example trial in the \textit{Shading} + \textit{Threshold Line} condition. This ECG visualisation does show ST-elevation."
+
+knitr::include_graphics(path = "graphics/example_trial.png", dpi = NA)
+```
+
+All participants were recruited with the Prolific platform~\citep{prolific}.
+We sought to recruit ${n = 100}$ participants for each of the three between-participants experiments.
+English fluency, normal or corrected-to-normal vision, and having not taken part in any of the RRI workshops described in Section~\ref{sec-method-online-exp} were required for participation. 
+Participants were also instructed not to take part if they had prior medical knowledge or experience interpreting ECGs.
+
 ### Experimental Design
+
+We employed a mixed design. Within participants, all saw the same 58 ECG tracings without visualisations (29 with ST-elevation, 29 without).
+The between-participants factor was the type of ECG visualisation utilised.
+Each group saw the same 58 ECG tracings with the different
+visualisations shown in Figure~\ref{fig:vis-examples}. 
+Participants saw 116 experimental and 8 attention check items in a fully randomised order.
+Dependent variables were participant responses to ECG stimuli and the speed with which they provided their responses.
+All experimental code, materials, and instructions are hosted on GitLab as three separate experiments\footnote{https://gitlab.pavlovia.org/Strain/ecg_x_jt}\fnsep\footnote{https://gitlab.pavlovia.org/Strain/ecg_x_st}\fnsep\footnote{https://gitlab.pavlovia.org/Strain/ecg_x_stj}.
 
 # Results
 
