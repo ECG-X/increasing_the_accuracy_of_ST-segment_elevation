@@ -1,124 +1,235 @@
 ---
-title: Short Paper
-subtitle: A Short Subtitle
+title: Increasing the accuracy of ST-segment elevation detection in an ECG through automated visual rules
 author:
-  - name: Alice Anonymous
-    email: alice@example.com
-    affiliations: 
-        - id: some-tech
-          name: Some Institute of Technology
-          department: Department Name
-          address: Street Address
-          city: City
-          state: State
-          postal-code: Postal Code
+  - name: Lukas Hughes-Noehrer
+    email: lukas.noehrer@manchester.ac.uk
+    affiliations:
+      - id: cs-manchester
+        name: The University of Manchester
+        department: Department of Computer Science
+        address: Oxford Road
+        city: Manchester
+        postal-code: M13 9PL
+        country: United Kingdom
     attributes:
-        corresponding: true
-    note: This is the first author footnote.
-  - name: Bob Security
-    email: bob@example.com
+      corresponding: true
+  - name: Gabriel Strain
     affiliations:
-        - id: another-u
-          name: Another University
-          department: Department Name
-          address: Street Address
-          city: City
-          state: State
-          postal-code: Postal Code
-    note: |
-      Another author footnote, this is a very long footnote and it should be a really long footnote. But this footnote is not yet sufficiently long enough to make two lines of footnote text.
-  - name: Cat Memes
-    email: cat@example.com
+      - ref: cs-manchester
+  - name: Adina Rahim
     affiliations:
-        - ref: another-u
-    note: Yet another author footnote.
-  - name: Derek Zoolander
-    email: derek@example.com
-    affilations:
-        - ref: some-tech
+      - id: research-it-manchester
+        name: The University of Manchester
+        department: Research IT, IT Services
+        address: Oxford Road
+        city: Manchester
+        postal-code: M13 9PL
+        country: United Kingdom
+  - name: James Sinnott
+    affiliations:
+      - ref: research-it-manchester
+  - name: Jonathan Carlton
+    affiliations:
+      - ref: cs-manchester
+  - name: Crystal T. Wu
+    affiliations:
+      - ref: cs-manchester
+  - name: Richard Body
+    affiliations:
+      - id: cardio-manchester
+        name: The University of Manchester
+        department: Division of Cardiovascular Sciences
+        address: Oxford Road
+        city: Manchester
+        postal-code: M13 9PL
+        country: United Kingdom
+  - name: Caroline Jay
+    affiliations:
+      - ref: cs-manchester
 abstract: |
-  This is the abstract. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum augue turpis, dictum non malesuada a, volutpat eget velit. Nam placerat turpis purus, eu tristique ex tincidunt et. Mauris sed augue eget turpis ultrices tincidunt. Sed et mi in leo porta egestas. Aliquam non laoreet velit. Nunc quis ex vitae eros aliquet auctor nec ac libero. Duis laoreet sapien eu mi luctus, in bibendum leo molestie. Sed hendrerit diam diam, ac dapibus nisl volutpat vitae. Aliquam bibendum varius libero, eu efficitur justo rutrum at. Sed at tempus elit.
+  Accurate identification of ST‑segment elevation on the electrocardiogram (ECG) is essential for diagnosing acute myocardial infarction, yet interpretation remains challenging due to noise, signal variability, differences in user expertise and limitations of existing automated methods. This study investigates whether novel, clinically motivated visualisation techniques -- including a novel heart‑rate–corrected ST‑analysis window (STc) -- can make ST‑segment elevation easier to detect.
+  (Part I) qualitative validation interviews with practising clinicians from emergency medicine, anaesthesia, critical care and cardiology, followed by (Part II) a preregistered online experiment with members of the public unfamiliar with ECG interpretation. 
+  
+  In the clinician interviews (n = 6), participants described the visualisations as transparent, clinically coherent, helpful for training, and complementary to automated prompts. Clinicians particularly valued visual cues that provided a consistent and physiologically grounded ST‑analysis window; for this reason, we included STc, a heart‑rate--corrected interval that avoids reliance on arbitrary fixed millisecond cut-offs and mitigates heart‑rate--driven distortions in defining the end of the ST‑segment.
+  
+  
+  Overall, the findings demonstrate that intuitive, explainable visual cues can support accurate detection of ST‑segment elevation and have potential for future clinical decision‑support tools, training resources, and patient‑facing applications.
+  We conducted a mixed‑methods investigation comprising two components: 
+  In the online experiment (n = 303), participants classified single‑lead, single‑beat ECG images that either incorporated visualisations or displayed the visually unannotated signal. Accuracy and response times, analysed using generalised linear mixed models, showed that participants made significantly more accurate and faster decisions when visualisations were present. Performance differed across visualisation types: shading‑based designs were most effective when ST‑segment elevation was present, while J‑point markers were particularly helpful when elevation was absent.
 keywords: 
-  - keyword1
-  - keyword2
+  - electrocardiogram
+  - ST elevation
+  - visualisation
+  - crowdsourced
+  - user validation
 date: last-modified
 bibliography: bibliography.bib
 format:
   elsevier-pdf:
+    colorlinks: false
     keep-tex: true
     journal:
-      name: Journal Name
+      name: Computers in Biology and Medicine
       formatting: preprint
       # model: 3p # Don't set a model with preprint
-      cite-style: authoryear
+      cite-style: number
+editor: 
+  markdown: 
+    wrap: sentence
 ---
 
-Please make sure that your manuscript follows the guidelines in the 
-Guide for Authors of the relevant journal. It is not necessary to 
-typeset your manuscript in exactly the same way as an article, 
-unless you are submitting to a camera-ready copy (CRC) journal.
+# Introduction
 
-For detailed instructions regarding the elsevier article class, see   <https://www.elsevier.com/authors/policies-and-guidelines/latex-instructions>
+Cardiovascular diseases remain the leading cause of death worldwide, accounting for an estimated 19.8 million deaths in 2022.
+Approximately 85% of these were due to heart attack and stroke \cite{who}.
+Myocardial Infarction (MI), commonly known as a heart attack, is therefore a major global health concern \cite{moraes_2017, ibanez_2018}.
+The electrocardiogram (ECG or EKG) is an important diagnostic tool for the investigation of heart attacks and heart problems, and is interpreted using visualisations of the electrical impulses flowing through the heart.
+ECGs are quick, cost-effective, and non-invasive, and are therefore usually the first investigation a patient presenting with a suspected cardiac issue may undergo \cite{hampton_2024}.
 
-# Bibliography styles
+Despite their ubiquity as a medical diagnostic tool, ECGs are notoriously difficult to interpret \cite{salerno_2003, cook_2020, rafie_2021}.
+Accuracy in ECG interpretation varies, even amongst those trained in cardiology.
+A 2020 meta-analysis of 78 studies across all levels of clinical training reported a median accuracy rate of 54% \cite{cook_2020}.
+Expectedly, as medical professionals move through their careers, undergo additional training, and gain further experience, accuracy trends upwards.
+Yet, resident doctors (those still in training) make up significant proportions of medical workforces \cite{nhs_stats}, and errors in ECG interpretation account for poor patient health outcomes and preventable deaths \cite{mele_2008}.
+Improving ECG interpretation remains a critical issue.
 
-Here are two sample references:  @Feynman1963118 @Dirac1953888.
+Historically, computer-assisted interpretation of ECGs dates back to the 1950s \cite{macfarlane_automated_2021}, and algorithmic support is now standard in ECG monitoring systems.
+Contemporary Computerised Interpretation of ECG (CIE) aims to reduce diagnostic errors and support clinical decision-making, yet studies have demonstrated the fallibility of automated interpretations; clinician oversight is required to avoid misdiagnosis \cite{smulyan_computerized_2019, schlapfer_computer-interpreted_2017}.
+Recent advances in Artificial Intelligence (AI) and Machine Learning (ML), coupled with large waveform datasets, have enabled methods ranging from rule-based systems to deep learning approaches \cite{gupta_computer-interpreted_2024, gill_artificial_2023, lyon_computational_2018}.
+Despite promising clinical trials and regulatory approval of some devices \cite{himmelreich_diagnostic_2023}, adoption remains limited due to systemic bias, liability concerns, cybersecurity risks, and unresolved technical and ethical challenges \cite{khurshid_clinical_2023, siontis_artificial_2021, elul_meeting_2021, chung_clinical_2022, rajpurkar_ai_2022}.
+Trust in AI systems remains a critical barrier, with clinicians expressing cautious optimism, but highlighting issues around cost, usability, and explainability \cite{schepart_artificial_2023, stewart_attitudes_2024, burgess_healthcare_2023, asan_artificial_2020}.
+Automated techniques that can reliably support the intuitive understanding of ECG data are therefore particularly important.
 
-With this template using elsevier class, natbib will be used. Three bibliographic style ﬁles (*.bst) are provided and their use controled by `cite-style` option: 
+The majority of work examining ECG interpretation has taken place with medical practitioners.
+While various studies have investigated how practitioners with different levels of ECG-interpretation experience read ECGs \cite{cook_2020, davies_2019, attar_2025}, to our knowledge, Alahmadi et al. \cite{alahmadi_2019a, alahmadi_2019b, alahmadi_2020} is the only work focused on the interpretation of ECGs (detecting prolonged QT intervals) by lay people.
+Building on this, along with our recent work demonstrating that explainable visualisation techniques are useful for facilitating the interpretation of ECGs and aiding clinical decision-making \cite{hughes_2025, noehrer}, we developed novel ST-segment elevation (ST-elevation) visualisations informed by established clinical rules routinely used by medical professionals \cite{rao_2025}.
+Our visualisations highlight areas that are of interest to clinicians, with the aim of supporting efficient, accurate ECG interpretation.
+To assess the effectiveness of our visualisations, we adopted a mixed-methods approach: a clinical user validation -- presented in Part I -- and a reproducible single-experiment study with lay participants -- presented in Part II. We selected lay people to evaluate the usefulness of our visualisation under the assumption that if individuals with no prior experience in interpreting ECGs can accurately identify ST-elevation, it provides strong evidence for the comprehensibility and the intuitiveness of our explainable designs.
 
-- `citestyle: number` (default)  will use `elsarticle-num.bst` - can be used for the numbered scheme
-- `citestyle: numbername` will use `elsarticle-num-names.bst` - can be used for numbered with new options of natbib.sty
-- `citestyle: authoryear` will use `elsarticle-harv.bst` — can be used for author year scheme
+## Hypotheses
 
-This `citestyle` will insert the right `.bst` and set the correct `classoption` for `elsarticle` document class.
+Our Part II study tested three visualisations based on clinical rules with the aim
+of scaffolding understanding and interpretation of ST-elevations. Owing
+to the novelty of both the designs and the testing of lay populations
+with ECG visualisations, we do not hypothesise that one design may be
+superior to another. Previous evidence that novel designs can be
+beneficial with regards to the interpretation of ECG data among lay
+participants~\citep{alahmadi_2019a, alahmadi_2019b, alahmadi_2020, alahmadi_2021, alahmadi_2023}
+lead to the following hypotheses, both of which were pre-registered with the Open Science Framework\footnote{\url{https://osf.io/v6tjp}}:
 
-Using `natbiboptions` variable in YAML header, you can set more options for `natbib` itself . Example 
+\begin{itemize}
+\item
+  H1: Participants' performance on a binary decision task recognising the presence or absence of ST-elevation will be more accurate when a visualisation condition is present as opposed to when there is no additional visualisation beyond what is standard for ECG data.
+\item
+  H2: Participants will make binary classification decisions significantly more quickly when additional visualisations are present compared to when they are not.
+\end{itemize}
 
-```yaml
-natbiboptions: longnamesfirst,angle,semicolon
-```
+# Related Work
 
-## Using CSL 
+Myocardial Infarction (MI) refers to a partial or complete blockage of the blood flow to a
+portion of the heart muscle~\citep{ojha_2023}. Such a blockage deprives
+parts of the heart of oxygen, potentially leading to cell death and
+necrosis. Depending on the extent of this oxygen deprivation, MI can
+range from being symptomless (undetected by the affected person), to
+catastrophic, leading to sudden death. Types of MI are diagnosed based
+on the presence of cardiac bio-markers in the blood concurrent with
+other criteria, including changes in the electrical activity of the
+heart~\citep{thygesen_2019} detected using an ECG. In a clinical setting, 10
+electrodes are attached to different parts of the patient's body to
+produce 12 different ``views'' of the heart's electrical activity~\citep{hampton_2024}; these are often referred to as \emph{leads}.
+ST-segment elevation Myocardial Infarction (STEMI) is diagnostically defined as~\citep{rao_2025, akbar_2024}:
 
-If `cite-method` is set to `citeproc` in `elsevier_article()`, then pandoc is used for citations instead of `natbib`. In this case, the `csl` option is used to format the references. By default, this template will provide an appropriate style, but alternative `csl` files are available from <https://www.zotero.org/styles?q=elsevier>. These can be downloaded
-and stored locally, or the url can be used as in the example header.
+\begin{quotation}
+  The presence of an ST-segment that is elevated above the baseline at the 
+  J-point by at least 0.1~millivolts (mV) in any two contiguous leads except V2 and V3.
+  In leads V2 and V3, this elevation must be at least 0.2~mV in males aged 40 years or older,
+  at least 0.25~mV in males aged under 40 years, and at least 0.15~mV in females.
+\end{quotation}
 
-# Equations
 
-Here is an equation:
-$$ 
-  f_{X}(x) = \left(\frac{\alpha}{\beta}\right)
-  \left(\frac{x}{\beta}\right)^{\alpha-1}
-  e^{-\left(\frac{x}{\beta}\right)^{\alpha}}; 
-  \alpha,\beta,x > 0 .
-$$
+## ST-Elevation Myocardial Infarction
 
-Inline equations work as well: $\sum_{i = 2}^\infty\{\alpha_i^\beta\}$
+## ECG Interpretation
 
-# Figures and tables
+## ECG Visualisation
 
-@fig-meaningless is generated using an R chunk.
+## Using Clinical Rules to Guide Visualisation Design
 
-```{r}
-#| label: fig-meaningless
-#| fig-cap: A meaningless scatterplot
-#| fig-width: 5
-#| fig-height: 5
-#| fig-align: center
-#| out-width: 50%
-#| echo: false
-plot(runif(25), runif(25))
-```
+## Future Forward: Wearable Health Technologies
 
-# Tables coming from R
+# Materials and Methodology
 
-Tables can also be generated using R chunks, as shown in @tbl-simple example.
+## Algorithm Development
 
-```{r}
-#| label: tbl-simple
-#| tbl-cap: Caption centered above table
-#| echo: true
-knitr::kable(head(mtcars)[,1:4])
-```
+### Technical Assumptions
 
-# References {-}
+### Data Preparation
+
+### Data Preprocessing
+
+### Pipeline Configuration and Data Quality Check
+
+### Feature Detection
+
+### Novel Correction of ST-segment Calculations
+
+### Visualisations Design and Algorithm
+
+## Part I: Clinical Validation of Visualisations
+
+## Part II: Online Experiment with Lay Participants
+
+### Crowdsourcing
+
+### Open Research
+
+### Modelling
+
+### Stimuli
+
+### Procedure
+
+### Experimental Design
+
+# Results
+
+## Part I: Clinical Validation of Visualisations {#valid-results}
+
+### Preference for Distinct Visual Cues
+
+### Trust in Guideline-Based Visuals
+
+### Role in Contemporary Computerised Interpretation of ECG
+
+### Educational Value
+
+### Universal Application and Pre-Hospital Utility
+
+## Part II: Online Experiment with Lay Participants {#online-results}
+
+## Additional Analyses
+
+# Discussion
+
+## Part I: Clinical Validation of Visualisations {#valid-disc}
+
+### 
+
+### 
+
+### 
+
+## Part II: Online Experiment with Lay Participants {#online-disc}
+
+### Visualisation Improves Performance
+
+### Visualisation Type and Mechanism of Action
+
+# Conclusion
+
+# Acknowledgements {.unnumbered}
+
+We want to thank all clinicians and critical friends of the project for their continued input as part of our Responsible Research and Innovation stakeholder engagement.
+This work was funded by the Engineering and Physical Sciences Research Council (EPSRC) under grant number EP/X02945X/1.
+
+# References {.unnumbered}

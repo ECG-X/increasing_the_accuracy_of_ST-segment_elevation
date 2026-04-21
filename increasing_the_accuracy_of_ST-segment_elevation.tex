@@ -1,0 +1,507 @@
+% Options for packages loaded elsewhere
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+  number,
+  preprint]{elsarticle}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{5}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+% Make \paragraph and \subparagraph free-standing
+\makeatletter
+\ifx\paragraph\undefined\else
+  \let\oldparagraph\paragraph
+  \renewcommand{\paragraph}{
+    \@ifstar
+      \xxxParagraphStar
+      \xxxParagraphNoStar
+  }
+  \newcommand{\xxxParagraphStar}[1]{\oldparagraph*{#1}\mbox{}}
+  \newcommand{\xxxParagraphNoStar}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+  \let\oldsubparagraph\subparagraph
+  \renewcommand{\subparagraph}{
+    \@ifstar
+      \xxxSubParagraphStar
+      \xxxSubParagraphNoStar
+  }
+  \newcommand{\xxxSubParagraphStar}[1]{\oldsubparagraph*{#1}\mbox{}}
+  \newcommand{\xxxSubParagraphNoStar}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+\makeatother
+
+
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+
+
+
+
+
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+
+
+ 
+\usepackage[]{natbib}
+\bibliographystyle{elsarticle-num}
+
+
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\AtBeginDocument{%
+\ifdefined\contentsname
+  \renewcommand*\contentsname{Table of contents}
+\else
+  \newcommand\contentsname{Table of contents}
+\fi
+\ifdefined\listfigurename
+  \renewcommand*\listfigurename{List of Figures}
+\else
+  \newcommand\listfigurename{List of Figures}
+\fi
+\ifdefined\listtablename
+  \renewcommand*\listtablename{List of Tables}
+\else
+  \newcommand\listtablename{List of Tables}
+\fi
+\ifdefined\figurename
+  \renewcommand*\figurename{Figure}
+\else
+  \newcommand\figurename{Figure}
+\fi
+\ifdefined\tablename
+  \renewcommand*\tablename{Table}
+\else
+  \newcommand\tablename{Table}
+\fi
+}
+\@ifpackageloaded{float}{}{\usepackage{float}}
+\floatstyle{ruled}
+\@ifundefined{c@chapter}{\newfloat{codelisting}{h}{lop}}{\newfloat{codelisting}{h}{lop}[chapter]}
+\floatname{codelisting}{Listing}
+\newcommand*\listoflistings{\listof{codelisting}{List of Listings}}
+\makeatother
+\makeatletter
+\makeatother
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
+\makeatother
+\journal{Computers in Biology and Medicine}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Increasing the accuracy of ST-segment elevation detection in an ECG through automated visual rules},
+  pdfauthor={Lukas Hughes-Noehrer; Gabriel Strain; Adina Rahim; James Sinnott; Jonathan Carlton; Crystal T. Wu; Richard Body; Caroline Jay},
+  pdfkeywords={electrocardiogram, ST
+elevation, visualisation, crowdsourced, user validation},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+
+\setlength{\parindent}{6pt}
+\begin{document}
+
+\begin{frontmatter}
+\title{Increasing the accuracy of ST-segment elevation detection in an
+ECG through automated visual rules}
+\author[1]{Lukas Hughes-Noehrer%
+\corref{cor1}%
+}
+ \ead{lukas.noehrer@manchester.ac.uk} 
+\author[1]{Gabriel Strain%
+%
+}
+
+\author[2]{Adina Rahim%
+%
+}
+
+\author[2]{James Sinnott%
+%
+}
+
+\author[1]{Jonathan Carlton%
+%
+}
+
+\author[1]{Crystal T. Wu%
+%
+}
+
+\author[3]{Richard Body%
+%
+}
+
+\author[1]{Caroline Jay%
+%
+}
+
+
+\affiliation[1]{organization={The University of Manchester, Department
+of Computer Science},addressline={Oxford
+Road},city={Manchester},country={United
+Kingdom},countrysep={,},postcode={M13 9PL},postcodesep={}}
+\affiliation[2]{organization={The University of Manchester, Research IT,
+IT Services},addressline={Oxford Road},city={Manchester},country={United
+Kingdom},countrysep={,},postcode={M13 9PL},postcodesep={}}
+\affiliation[3]{organization={The University of Manchester, Division of
+Cardiovascular Sciences},addressline={Oxford
+Road},city={Manchester},country={United
+Kingdom},countrysep={,},postcode={M13 9PL},postcodesep={}}
+
+\cortext[cor1]{Corresponding author}
+
+
+
+
+
+
+
+
+        
+\begin{abstract}
+Accurate identification of ST‑segment elevation on the electrocardiogram
+(ECG) is essential for diagnosing acute myocardial infarction, yet
+interpretation remains challenging due to noise, signal variability,
+differences in user expertise and limitations of existing automated
+methods. This study investigates whether novel, clinically motivated
+visualisation techniques -- including a novel heart‑rate--corrected
+ST‑analysis window (STc) -- can make ST‑segment elevation easier to
+detect. (Part I) qualitative validation interviews with practising
+clinicians from emergency medicine, anaesthesia, critical care and
+cardiology, followed by (Part II) a preregistered online experiment with
+members of the public unfamiliar with ECG interpretation.
+
+In the clinician interviews (n = 6), participants described the
+visualisations as transparent, clinically coherent, helpful for
+training, and complementary to automated prompts. Clinicians
+particularly valued visual cues that provided a consistent and
+physiologically grounded ST‑analysis window; for this reason, we
+included STc, a heart‑rate--corrected interval that avoids reliance on
+arbitrary fixed millisecond cut-offs and mitigates heart‑rate--driven
+distortions in defining the end of the ST‑segment.
+
+Overall, the findings demonstrate that intuitive, explainable visual
+cues can support accurate detection of ST‑segment elevation and have
+potential for future clinical decision‑support tools, training
+resources, and patient‑facing applications. We conducted a mixed‑methods
+investigation comprising two components: In the online experiment (n =
+303), participants classified single‑lead, single‑beat ECG images that
+either incorporated visualisations or displayed the visually unannotated
+signal. Accuracy and response times, analysed using generalised linear
+mixed models, showed that participants made significantly more accurate
+and faster decisions when visualisations were present. Performance
+differed across visualisation types: shading‑based designs were most
+effective when ST‑segment elevation was present, while J‑point markers
+were particularly helpful when elevation was absent.
+\end{abstract}
+
+
+
+
+
+\begin{keyword}
+    electrocardiogram \sep ST
+elevation \sep visualisation \sep crowdsourced \sep 
+    user validation
+\end{keyword}
+\end{frontmatter}
+    
+
+\section{Introduction}\label{introduction}
+
+Cardiovascular diseases remain the leading cause of death worldwide,
+accounting for an estimated 19.8 million deaths in 2022. Approximately
+85\% of these were due to heart attack and stroke \cite{who}. Myocardial
+Infarction (MI), commonly known as a heart attack, is therefore a major
+global health concern \cite{moraes_2017, ibanez_2018}. The
+electrocardiogram (ECG or EKG) is an important diagnostic tool for the
+investigation of heart attacks and heart problems, and is interpreted
+using visualisations of the electrical impulses flowing through the
+heart. ECGs are quick, cost-effective, and non-invasive, and are
+therefore usually the first investigation a patient presenting with a
+suspected cardiac issue may undergo \cite{hampton_2024}.
+
+Despite their ubiquity as a medical diagnostic tool, ECGs are
+notoriously difficult to interpret
+\cite{salerno_2003, cook_2020, rafie_2021}. Accuracy in ECG
+interpretation varies, even amongst those trained in cardiology. A 2020
+meta-analysis of 78 studies across all levels of clinical training
+reported a median accuracy rate of 54\% \cite{cook_2020}. Expectedly, as
+medical professionals move through their careers, undergo additional
+training, and gain further experience, accuracy trends upwards. Yet,
+resident doctors (those still in training) make up significant
+proportions of medical workforces \cite{nhs_stats}, and errors in ECG
+interpretation account for poor patient health outcomes and preventable
+deaths \cite{mele_2008}. Improving ECG interpretation remains a critical
+issue.
+
+Historically, computer-assisted interpretation of ECGs dates back to the
+1950s \cite{macfarlane_automated_2021}, and algorithmic support is now
+standard in ECG monitoring systems. Contemporary Computerised
+Interpretation of ECG (CIE) aims to reduce diagnostic errors and support
+clinical decision-making, yet studies have demonstrated the fallibility
+of automated interpretations; clinician oversight is required to avoid
+misdiagnosis
+\cite{smulyan_computerized_2019, schlapfer_computer-interpreted_2017}.
+Recent advances in Artificial Intelligence (AI) and Machine Learning
+(ML), coupled with large waveform datasets, have enabled methods ranging
+from rule-based systems to deep learning approaches
+\cite{gupta_computer-interpreted_2024, gill_artificial_2023, lyon_computational_2018}.
+Despite promising clinical trials and regulatory approval of some
+devices \cite{himmelreich_diagnostic_2023}, adoption remains limited due
+to systemic bias, liability concerns, cybersecurity risks, and
+unresolved technical and ethical challenges
+\cite{khurshid_clinical_2023, siontis_artificial_2021, elul_meeting_2021, chung_clinical_2022, rajpurkar_ai_2022}.
+Trust in AI systems remains a critical barrier, with clinicians
+expressing cautious optimism, but highlighting issues around cost,
+usability, and explainability
+\cite{schepart_artificial_2023, stewart_attitudes_2024, burgess_healthcare_2023, asan_artificial_2020}.
+Automated techniques that can reliably support the intuitive
+understanding of ECG data are therefore particularly important.
+
+The majority of work examining ECG interpretation has taken place with
+medical practitioners. While various studies have investigated how
+practitioners with different levels of ECG-interpretation experience
+read ECGs \cite{cook_2020, davies_2019, attar_2025}, to our knowledge,
+Alahmadi et al.~\cite{alahmadi_2019a, alahmadi_2019b, alahmadi_2020} is
+the only work focused on the interpretation of ECGs (detecting prolonged
+QT intervals) by lay people. Building on this, along with our recent
+work demonstrating that explainable visualisation techniques are useful
+for facilitating the interpretation of ECGs and aiding clinical
+decision-making \cite{hughes_2025, noehrer}, we developed novel
+ST-segment elevation (ST-elevation) visualisations informed by
+established clinical rules routinely used by medical professionals
+\cite{rao_2025}. Our visualisations highlight areas that are of interest
+to clinicians, with the aim of supporting efficient, accurate ECG
+interpretation. To assess the effectiveness of our visualisations, we
+adopted a mixed-methods approach: a clinical user validation --
+presented in Part I -- and a reproducible single-experiment study with
+lay participants -- presented in Part II. We selected lay people to
+evaluate the usefulness of our visualisation under the assumption that
+if individuals with no prior experience in interpreting ECGs can
+accurately identify ST-elevation, it provides strong evidence for the
+comprehensibility and the intuitiveness of our explainable designs.
+
+\subsection{Hypotheses}\label{hypotheses}
+
+Our Part II study tested three visualisations based on clinical rules
+with the aim of scaffolding understanding and interpretation of
+ST-elevations. Owing to the novelty of both the designs and the testing
+of lay populations with ECG visualisations, we do not hypothesise that
+one design may be superior to another. Previous evidence that novel
+designs can be beneficial with regards to the interpretation of ECG data
+among lay
+participants\textasciitilde{}\citep{alahmadi_2019a, alahmadi_2019b, alahmadi_2020, alahmadi_2021, alahmadi_2023}
+lead to the following hypotheses, both of which were pre-registered with
+the Open Science Framework\footnote{\url{https://osf.io/v6tjp}}:
+
+\begin{itemize}
+\item
+  H1: Participants' performance on a binary decision task recognising the presence or absence of ST-elevation will be more accurate when a visualisation condition is present as opposed to when there is no additional visualisation beyond what is standard for ECG data.
+\item
+  H2: Participants will make binary classification decisions significantly more quickly when additional visualisations are present compared to when they are not.
+\end{itemize}
+
+\section{Related Work}\label{related-work}
+
+Myocardial Infarction (MI) refers to a partial or complete blockage of
+the blood flow to a portion of the heart
+muscle\textasciitilde{}\citep{ojha_2023}. Such a blockage deprives parts
+of the heart of oxygen, potentially leading to cell death and necrosis.
+Depending on the extent of this oxygen deprivation, MI can range from
+being symptomless (undetected by the affected person), to catastrophic,
+leading to sudden death. Types of MI are diagnosed based on the presence
+of cardiac bio-markers in the blood concurrent with other criteria,
+including changes in the electrical activity of the
+heart\textasciitilde{}\citep{thygesen_2019} detected using an ECG. In a
+clinical setting, 10 electrodes are attached to different parts of the
+patient's body to produce 12 different ``views'\,' of the heart's
+electrical activity\textasciitilde{}\citep{hampton_2024}; these are
+often referred to as \emph{leads}. ST-segment elevation Myocardial
+Infarction (STEMI) is diagnostically defined
+as\textasciitilde{}\citep{rao_2025, akbar_2024}:
+
+\begin{quotation}
+  The presence of an ST-segment that is elevated above the baseline at the 
+  J-point by at least 0.1~millivolts (mV) in any two contiguous leads except V2 and V3.
+  In leads V2 and V3, this elevation must be at least 0.2~mV in males aged 40 years or older,
+  at least 0.25~mV in males aged under 40 years, and at least 0.15~mV in females.
+\end{quotation}
+
+\subsection{ST-Elevation Myocardial
+Infarction}\label{st-elevation-myocardial-infarction}
+
+\subsection{ECG Interpretation}\label{ecg-interpretation}
+
+\subsection{ECG Visualisation}\label{ecg-visualisation}
+
+\subsection{Using Clinical Rules to Guide Visualisation
+Design}\label{using-clinical-rules-to-guide-visualisation-design}
+
+\subsection{Future Forward: Wearable Health
+Technologies}\label{future-forward-wearable-health-technologies}
+
+\section{Materials and Methodology}\label{materials-and-methodology}
+
+\subsection{Algorithm Development}\label{algorithm-development}
+
+\subsubsection{Technical Assumptions}\label{technical-assumptions}
+
+\subsubsection{Data Preparation}\label{data-preparation}
+
+\subsubsection{Data Preprocessing}\label{data-preprocessing}
+
+\subsubsection{Pipeline Configuration and Data Quality
+Check}\label{pipeline-configuration-and-data-quality-check}
+
+\subsubsection{Feature Detection}\label{feature-detection}
+
+\subsubsection{Novel Correction of ST-segment
+Calculations}\label{novel-correction-of-st-segment-calculations}
+
+\subsubsection{Visualisations Design and
+Algorithm}\label{visualisations-design-and-algorithm}
+
+\subsection{Part I: Clinical Validation of
+Visualisations}\label{part-i-clinical-validation-of-visualisations}
+
+\subsection{Part II: Online Experiment with Lay
+Participants}\label{part-ii-online-experiment-with-lay-participants}
+
+\subsubsection{Crowdsourcing}\label{crowdsourcing}
+
+\subsubsection{Open Research}\label{open-research}
+
+\subsubsection{Modelling}\label{modelling}
+
+\subsubsection{Stimuli}\label{stimuli}
+
+\subsubsection{Procedure}\label{procedure}
+
+\subsubsection{Experimental Design}\label{experimental-design}
+
+\section{Results}\label{results}
+
+\subsection{Part I: Clinical Validation of
+Visualisations}\label{valid-results}
+
+\subsubsection{Preference for Distinct Visual
+Cues}\label{preference-for-distinct-visual-cues}
+
+\subsubsection{Trust in Guideline-Based
+Visuals}\label{trust-in-guideline-based-visuals}
+
+\subsubsection{Role in Contemporary Computerised Interpretation of
+ECG}\label{role-in-contemporary-computerised-interpretation-of-ecg}
+
+\subsubsection{Educational Value}\label{educational-value}
+
+\subsubsection{Universal Application and Pre-Hospital
+Utility}\label{universal-application-and-pre-hospital-utility}
+
+\subsection{Part II: Online Experiment with Lay
+Participants}\label{online-results}
+
+\subsection{Additional Analyses}\label{additional-analyses}
+
+\section{Discussion}\label{discussion}
+
+\subsection{Part I: Clinical Validation of
+Visualisations}\label{valid-disc}
+
+\subsubsection{}\label{section}
+
+\subsubsection{}\label{section-1}
+
+\subsubsection{}\label{section-2}
+
+\subsection{Part II: Online Experiment with Lay
+Participants}\label{online-disc}
+
+\subsubsection{Visualisation Improves
+Performance}\label{visualisation-improves-performance}
+
+\subsubsection{Visualisation Type and Mechanism of
+Action}\label{visualisation-type-and-mechanism-of-action}
+
+\section{Conclusion}\label{conclusion}
+
+\section*{Acknowledgements}\label{acknowledgements}
+\addcontentsline{toc}{section}{Acknowledgements}
+
+We want to thank all clinicians and critical friends of the project for
+their continued input as part of our Responsible Research and Innovation
+stakeholder engagement. This work was funded by the Engineering and
+Physical Sciences Research Council (EPSRC) under grant number
+EP/X02945X/1.
+
+
+\renewcommand\refname{References}
+\bibliography{bibliography.bib}
+
+
+
+\end{document}
