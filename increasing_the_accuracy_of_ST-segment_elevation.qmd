@@ -68,14 +68,15 @@ format:
   elsevier-pdf:
     colorlinks: false
     keep-tex: true
+    classoption: 12pt
     journal:
       name: Computers in Biology and Medicine
       formatting: preprint
       # model: 3p # Don't set a model with preprint
       cite-style: number
-      
+
 params:
-  eval_models: true
+  eval_models: false
   
 knitr:
   opts_chunk: 
@@ -87,12 +88,255 @@ execute:
   warning: false
   message: false
   include: false
+  
+include-in-header:
+  - text: |
+      \usepackage{tabularx}
+      \usepackage[multiple]{footmisc}
+      \newcommand{\fnsep}{\textsuperscript{,}}
 ---
 
 ```{r}
 #| label: setup
 
+# load packages
+
 library(tidyverse)
+library(buildmer)
+library(kableExtra)
+library(papaja)
+library(qwraps2)
+library(ggdist)
+library(ggpubr)
+library(conflicted)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(forcats)
+library(rlang)
+
+# fix package conflicts now 
+
+conflicts_prefer(dplyr::select(), dplyr::filter(), lme4::lmer())
+```
+
+```{r}
+#| label: lazyload-cache
+
+if (!params$eval_models){ lazyload_cache_dir("increasing_the_accuracy_of_ST-segment_elevation_cache/pdf") }
+```
+
+```{r}
+#| label: load-data
+
+m1_ST_anon <- read_csv("exp_data/ECG_X_EXP1_m1_anon_ST.csv", guess_max = 15000) %>%  # 103 participants
+  mutate(grand_condition = "ST") %>% 
+  select(-"__participant") 
+
+m1_JT_anon <- read_csv("exp_data/ECG_X_EXP1_m1_anon_JT.csv", guess_max = 15000) %>% # 100 participants
+  mutate(grand_condition = "JT") %>%
+  mutate(participant = participant + 103) %>%
+  select(-"__participant")
+
+m1_STJ_anon <- read_csv("exp_data/ECG_X_EXP1_m1_anon_STJ.csv", guess_max = 15000) %>% # 100 participants
+  mutate(grand_condition = "STJ") %>%
+  mutate(participant = participant + 203) %>%
+  select(-"__participant")
+```
+
+```{r}
+#| label: wrangle-data
+
+# NB: wrangle functions *must* be run to make data usable
+
+wrangle_data <- function(anon_file) {
+  
+  # extract demographics
+  
+  demographics <- anon_file %>%
+    filter(!is.na(gender_slider.response)) %>%
+    select(matches(c("participant",
+                     "age_textbox.text",
+                     "gender_slider.response")))
+  
+  if ("total_correct" %in% colnames(anon_file)) {
+  
+  total_correct <- anon_file %>%
+    filter(!is.na(total_correct)) %>%
+    select(c("participant", "total_correct")) 
+  
+  }
+  
+  # extract total time taken information
+  
+  time_taken <- anon_file %>%
+    filter(!is.na(final.stopped)) %>%
+    select(c("participant", "final.stopped")) %>%
+    rename("total_time_taken" = "final.stopped")
+  
+  # full wrangle function
+
+  anon_file %>%
+    select(c("participant",
+             "image_path",
+             "S_button.numClicks",
+             "S_button.timesOn",
+             "NS_button.numClicks",
+             "NS_button.timesOn",
+             "exp_trials_loop.thisN",
+             "unique_item_no",
+             "answer",
+             "grand_condition")) %>%
+    mutate(item = image_path) %>%
+    mutate(image_path = str_replace(image_path, ".*/", ""),
+           image_path = str_remove(image_path, "\\.png$")) %>%
+    separate(image_path, sep = "_",
+             into = c("vis_condition", "subj", "lead", NA, NA, "ST_condition")) %>%
+    mutate(vis_condition = case_when(
+      vis_condition %in% c("J", "JT", "JTI", "ST", "STJ") ~ "vis",
+      TRUE ~ vis_condition
+      )) %>%
+    mutate(ST_condition = recode(ST_condition,
+                                 NOST = "nst")) %>%
+    rename(STEMI_button_click = S_button.numClicks,
+           NSTEMI_button_click = NS_button.numClicks,
+           STEMI_button_RT = S_button.timesOn,
+           NSTEMI_button_RT = NS_button.timesOn,
+           trial_no = exp_trials_loop.thisN) %>%
+    filter(unique_item_no < 121) %>%
+    inner_join(demographics, by = "participant") %>%
+    full_join(time_taken, by = "participant") %>%
+    when("total_correct" %in% colnames(anon_file) ~ full_join(., total_correct,
+                                                              by = "participant"),
+         ~ .) %>%
+    mutate(across(everything(), ~ gsub("\\[|\\]", "", .))) %>%
+    mutate(across(ends_with("RT"), as.double)) %>%
+    mutate(
+      STEMI_button_click_new = ifelse(STEMI_button_click == 1, "ST", NA),
+      NSTEMI_button_click_new = ifelse(NSTEMI_button_click == 1, "N_ST", NA)
+    ) %>%
+    unite("participant_answer", 
+          STEMI_button_click_new,
+          NSTEMI_button_click_new, sep = ",", na.rm = T) %>%
+    unite("reaction_time",
+          STEMI_button_RT,
+          NSTEMI_button_RT, na.rm = T) %>%
+    mutate(correct = participant_answer == answer) %>%
+    mutate(across(matches(c("ST_condition",
+                            "grand_condition",
+                            "vis_condition")), as_factor)) %>%
+    mutate(reaction_time = as.numeric(reaction_time)) %>%
+    assign(paste0(unique(anon_file$expName), "_tidy"),
+           value = ., envir = .GlobalEnv)
+}
+
+# use wrangle function on anon data files
+
+wrangle_data(m1_JT_anon)
+wrangle_data(m1_ST_anon)
+wrangle_data(m1_STJ_anon)
+
+# create combined dataframe for later analysis 
+
+combined_df <- rbind(ECG_X_EXP1_m1_JT_tidy,
+                     ECG_X_EXP1_m1_ST_tidy,
+                     ECG_X_EXP1_m1_STJ_tidy) %>%
+  filter(!str_detect(item, "0478_i_")) %>%
+  filter(!str_detect(item, "0025_v4_4"))
+
+# extract gender and age data into separate dfs
+
+gender <- distinct(combined_df, participant,
+                   .keep_all = TRUE) %>%
+  group_by(gender_slider.response) %>%
+  summarise(sum = n()) %>%
+  pivot_wider(names_from = gender_slider.response, values_from = sum)
+
+age <- distinct(combined_df, participant,
+                .keep_all = TRUE) %>%
+  summarise(mean = mean(as.numeric(age_textbox.text), na.rm = TRUE),
+            sd = sd(age_textbox.text, na.rm = TRUE)) 
+
+# remove anon data files to keep env clean
+
+rm(m1_ST_anon, m1_JT_anon, m1_STJ_anon)
+```
+
+```{r}
+#| label: comparison-function
+
+# this function takes a model and creates a nested model with the fixed effects 
+# terms removed for anova comparison
+
+comparison <- function(model) {
+  
+  parens <- function(x) paste0("(",x,")")
+  onlyBars <- function(form) reformulate(sapply(findbars(form),
+                                              function(x)  parens(deparse(x))),
+                                       response=".")
+  onlyBars(formula(model))
+  cmpr_model <- update(model,onlyBars(formula(model)))
+  
+  return(cmpr_model)
+  
+}
+```
+
+```{r}
+#| label: anova-results-functions
+
+# this function takes two nested models, runs an anova, and then outputs the 
+# test statistic, the degrees of freedom, and the p value to the global 
+# environment
+
+anova_results <- function(model, cmpr_model) {
+  
+  model_name <- deparse(substitute(model))
+  
+  if (class(model) == "buildmer") model <- model@model
+  if (class(cmpr_model) == "buildmer") cmpr_model <- cmpr_model@model
+    
+  anova_output <- anova(model, cmpr_model)  
+                                           
+  assign(paste0(model_name, ".Chisq"),
+         anova_output$Chisq[2],
+         envir = .GlobalEnv)
+  assign(paste0(model_name, ".df"),
+         anova_output$Df[2],
+         envir = .GlobalEnv)
+  assign(paste0(model_name, ".p"),
+         anova_output$`Pr(>Chisq)`[2],
+         envir = .GlobalEnv)
+}
+```
+
+```{r}
+#| label: emm-table-function
+
+# function to produce dataframes for probability tables
+# address some of the formatting and renaming now
+
+make_emm_table <- function(model, predictor) {
+  
+  if (inherits(model, "buildmer")) model <- model@model
+
+  pred_enquo <- enquo(predictor)
+  
+  vars <- all.vars(get_expr(pred_enquo))
+
+  emm_grid <- emmeans(model, specs = vars)
+  
+  df <- as_tibble(emm_grid) %>%
+    select(-c("df")) %>%
+    rename("Log odds of Success" = emmean,
+           "Standard Error" = SE) %>%
+    mutate(asymp.LCL = round(asymp.LCL, 2),
+           asymp.UCL = round(asymp.UCL, 2)) %>%
+    unite("95% CI", asymp.LCL:asymp.UCL, sep = ", ") %>%
+    mutate(`95% CI` = paste0("[", `95% CI`, "]"))
+  
+  return(df)
+}
 ```
 
 
@@ -132,7 +376,7 @@ to the novelty of both the designs and the testing of lay populations
 with ECG visualisations, we do not hypothesise that one design may be
 superior to another. Previous evidence that novel designs can be
 beneficial with regards to the interpretation of ECG data among lay
-participants~\citep{alahmadi_2019a, alahmadi_2019b, alahmadi_2020, alahmadi_2021, alahmadi_2023}
+participants \cite{alahmadi_2019a, alahmadi_2019b, alahmadi_2020, alahmadi_2021, alahmadi_2023}
 lead to the following hypotheses, both of which were pre-registered with the Open Science Framework\footnote{\url{https://osf.io/v6tjp}}:
 
 \begin{itemize}
@@ -145,17 +389,17 @@ lead to the following hypotheses, both of which were pre-registered with the Ope
 # Related Work
 
 Myocardial Infarction (MI) refers to a partial or complete blockage of the blood flow to a
-portion of the heart muscle~\citep{ojha_2023}. Such a blockage deprives
+portion of the heart muscle \cite{ojha_2023}. Such a blockage deprives
 parts of the heart of oxygen, potentially leading to cell death and
 necrosis. Depending on the extent of this oxygen deprivation, MI can
 range from being symptomless (undetected by the affected person), to
 catastrophic, leading to sudden death. Types of MI are diagnosed based
 on the presence of cardiac bio-markers in the blood concurrent with
 other criteria, including changes in the electrical activity of the
-heart~\citep{thygesen_2019} detected using an ECG. In a clinical setting, 10
+heart \cite{thygesen_2019} detected using an ECG. In a clinical setting, 10
 electrodes are attached to different parts of the patient's body to
-produce 12 different ``views'' of the heart's electrical activity~\citep{hampton_2024}; these are often referred to as \emph{leads}.
-ST-segment elevation Myocardial Infarction (STEMI) is diagnostically defined as~\citep{rao_2025, akbar_2024}:
+produce 12 different ``views'' of the heart's electrical activity \cite{hampton_2024}; these are often referred to as \emph{leads}.
+ST-segment elevation Myocardial Infarction (STEMI) is diagnostically defined as \cite{rao_2025, akbar_2024}:
 
 \begin{quotation}
   The presence of an ST-segment that is elevated above the baseline at the 
@@ -174,31 +418,31 @@ ST-segment elevation Myocardial Infarction (STEMI) is diagnostically defined as~
 knitr::include_graphics(path = "graphics/ecg-example.pdf", dpi = NA)
 ```
 In this context, \emph{contiguous} refers to leads that represent
-adjacent anatomical areas. Figure~\ref{fig-ecg-signal-explainer}
+adjacent anatomical areas. Figure \ref{fig-ecg-signal-explainer}
 illustrates the different parts of a typical ECG signal, including
 the P-wave, QRS complex, ST-segment, J-point, and T-wave. In the context of
 ECG investigations, heart attacks featuring ST-segment
 elevation (STEMI) are differentiated from those where this elevation is
 absent (NSTEMI); the former is more severe, and so is studied in this work.
 Survival following a STEMI has improved substantially over the past few
-decades~\citep{pascual_2020, pedersen_2014, gale_2014}. Despite this,
-STEMI and other forms of MI remain a leading cause of mortality~\citep{moraes_2017, ibanez_2018} and lower Health-Related Quality of
-Life (HRQoL)~\citep{wang_2014, kang_2016, bahall_2018} worldwide.
+decades \cite{pascual_2020, pedersen_2014, gale_2014}. Despite this,
+STEMI and other forms of MI remain a leading cause of mortality \cite{moraes_2017, ibanez_2018} and lower Health-Related Quality of
+Life (HRQoL) \cite{wang_2014, kang_2016, bahall_2018} worldwide.
 Generally, prompt diagnosis and treatment are crucial for reducing
 mortality, limiting the duration of a person's hospital stay, and for their
-prognosis following a STEMI event~\citep{ibanez_2018}. Any intervention
+prognosis following a STEMI event \cite{ibanez_2018}. Any intervention
 that may improve clinicians' (and potentially patients') ability to
 quickly recognise STEMI is therefore worthy of study.
 
 ## ECG Interpretation
 
 ECG interpretation is a complex problem, even for clinicians with years
-of training~\citep{salerno_2003, cook_2020, rafie_2021}. In a clinical
+of training \cite{salerno_2003, cook_2020, rafie_2021}. In a clinical
 context, the heart activity taken from all 12 ECG leads is
 interpreted. Even recordings as short as 10~seconds (s) of
 heart activity information become complex data when taking into
 account 12 different signals, and clinicians are taught to make
-diagnoses based on the ensemble of information available~\citep{hampton_2024}.
+diagnoses based on the ensemble of information available \cite{hampton_2024}.
 Nevertheless, single-lead views offer
 substantial amounts of information, and require far less time and
 training to be able to interpret; we focus on single-lead,
@@ -212,11 +456,11 @@ examining a full 12-lead ECG, as elevation can occur in any single
 heartbeat over 12 different leads, and clinicians often work
 under substantial time pressure. %In addition to the amount of data that must be considered, actual ECGs are often noisy to the point of ambiguity.
 Over several studies, clinicians were reported as having an
-overall accuracy rating of around 70\%~\citep{mccabe_2013, veronese_2016} and low levels of interrater
-agreement, with a kappa value of 0.33 reported in McCabe et al.~\citep{mccabe_2013}. Studies have indicated that these issues may be
-due to difficulties in correctly identifying the J-point~\citep{carley_2002} or confusion that arises when the level of
-ST-elevation is very low~\citep{erling_2004}. While increased training
-improves accuracy on ECG interpretation paradigms~\citep{mccabe_2013, veronese_2016, cook_2020}, the fact remains that
+overall accuracy rating of around 70\% \cite{mccabe_2013, veronese_2016} and low levels of interrater
+agreement, with a kappa value of 0.33 reported in McCabe et al. \cite{mccabe_2013}. Studies have indicated that these issues may be
+due to difficulties in correctly identifying the J-point \cite{carley_2002} or confusion that arises when the level of
+ST-elevation is very low \cite{erling_2004}. While increased training
+improves accuracy on ECG interpretation paradigms \cite{mccabe_2013, veronese_2016, cook_2020}, the fact remains that
 interpreting ECG is difficult, even for those whose speciality is
 cardiology and those with many years of training and experience.
 
@@ -224,32 +468,32 @@ cardiology and those with many years of training and experience.
 
 The way in which ECG data are presented
 to clinicians has changed little since the invention of the technique
-over a century ago~\citep{friedman_2024}; the quintessential form of the
+over a century ago \cite{friedman_2024}; the quintessential form of the
 ECG, and the issues that clinicians face when engaging with it, remain
 much the same. ECGs are typically drawn on a Cartesian line graph with
 the signal voltage in millivolts on the \(y\)-axis and time in milliseconds (ms) on the
 \(x\)-axis. A background grid system is employed to aid interpretation;
-Figure~\ref{fig-ecg-signal-explainer} illustrates this system. Whether produced manually by a pen on
+Figure \ref{fig-ecg-signal-explainer} illustrates this system. Whether produced manually by a pen on
 grid paper, or drawn digitally by a computer, the resulting
 visualisation is essentially identical. Clinicians
 are expected to analyse the ensemble of ECG data together, and are not
 typically assisted by any visual aids, such as labels or markings, other than those that name the leads themselves and, if supported, computer-automated interpretations printed as text.
 
 Chest and limb leads have been combined separately into a pair of
-3-dimensional views of the heart's electrical activity by Chiang et al.~\citep{chiang_2001} and Heo et al.~\citep{heo_2020}; this technique has
-received some approval from clinicians based on polling~\citep{chiang_2001}, and has been used successfully in algorithmic
-classification paradigms~\citep{heo_2020, fang_2022, bortolan_2023}.
-Kors and van Herpern~\citep{kors_2008} and Wagner et al.~\citep{wagner_2008} have explored the theoretical use of ``inverted''
+3-dimensional views of the heart's electrical activity by Chiang et al. \cite{chiang_2001} and Heo et al. \cite{heo_2020}; this technique has
+received some approval from clinicians based on polling \cite{chiang_2001}, and has been used successfully in algorithmic
+classification paradigms \cite{heo_2020, fang_2022, bortolan_2023}.
+Kors and van Herpern \cite{kors_2008} and Wagner et al. \cite{wagner_2008} have explored the theoretical use of ``inverted''
 (mirror image) ECG leads, finding mixed results with regards to 
-their benefit over traditional, 12-lead ECG. Perron et al.~\citep{perron_2006}, however, found that including 7 additional inverted leads provided benefits in terms of detecting artificially
+their benefit over traditional, 12-lead ECG. Perron et al. \cite{perron_2006}, however, found that including 7 additional inverted leads provided benefits in terms of detecting artificially
 induced arterial blockage. Other visualisation techniques have included
-glyph-based interactive systems~\citep{xu_2018}, vectorial methods to
+glyph-based interactive systems \cite{xu_2018}, vectorial methods to
 illustrate the magnitude and direction of the electrical impulses of the
-heart~\citep{burch_1953, burch_1985, riera_2007, jaros_2019}, and spatial techniques
+heart \cite{burch_1953, burch_1985, riera_2007, jaros_2019}, and spatial techniques
 that generate maps of electrical potentials across the body (Body Surface
-Potential Mapping or BSPM)~\citep{lux_1978, taccardi_1998}. These
+Potential Mapping or BSPM) \cite{lux_1978, taccardi_1998}. These
 visualisation techniques, while sometimes useful for clinicians, are
-only ever considered as supplementary to traditional ECG visualisations~\citep{bond_2013}; their advantage is that they increase the amount
+only ever considered as supplementary to traditional ECG visualisations \cite{bond_2013}; their advantage is that they increase the amount
 and/or the complexity of the data displayed, meaning such techniques
 would not be suitable for those with no experience interpreting ECGs.
 The visualisation techniques presented in this work are designed to
@@ -263,36 +507,36 @@ healthcare data visualisations by translating clinical knowledge into structured
 representations. Such rules commonly take the form of thresholds, scoring systems,
 or rule-based pathways that support recognition of abnormal states, escalation of care,
 and coordination of clinical response; subsequently informing clinical 
-decisions~\cite{sutton_overview_2020}. In medical informatics, there is growing recognition 
+decisions \cite{sutton_overview_2020}. In medical informatics, there is growing recognition 
 of the need for effective data visualisations to overcome information overload and enable
-users to recognise clinically meaningful changes more effectively than when using raw data alone~\citep{aigner_2008}. Similarly, visual aggregation and structured timelines can promote more consistent interpretation of complex health data~\cite{ledesma_health_2019} and enhance situational awareness (SA) in clinical practice~\citep{dixit_2020}. 
+users to recognise clinically meaningful changes more effectively than when using raw data alone \cite{aigner_2008}. Similarly, visual aggregation and structured timelines can promote more consistent interpretation of complex health data \cite{ledesma_health_2019} and enhance situational awareness (SA) in clinical practice \cite{dixit_2020}. 
 
-However, the effectiveness of such visualisations is closely tied to how information is visually encoded and subsequently interpreted. Visual design choices directly shape perceptual processing and reasoning, meaning that poor encoding can undermine decision-making even when underlying data or logic are sound~\cite{ware2012}. Design studies in applied visualisation further emphasise that mismatches between visual representations, user tasks, and context of use frequently lead to limited adoption or misuse~\cite{sedlmair_design_2012}.
+However, the effectiveness of such visualisations is closely tied to how information is visually encoded and subsequently interpreted. Visual design choices directly shape perceptual processing and reasoning, meaning that poor encoding can undermine decision-making even when underlying data or logic are sound \cite{ware2012}. Design studies in applied visualisation further emphasise that mismatches between visual representations, user tasks, and context of use frequently lead to limited adoption or misuse \cite{sedlmair_design_2012}.
 
-Visualisations are also increasingly used to inform lay audiences about their health data and facilitate their understanding of complex information~\citep{arcia_2024}. In these settings, decision rules and algorithmic assessments are often embedded within visual summaries, indicators, or feedback messages, shaping how users perceive their health status and the actions they choose to take. This further reinforces the importance of aligning visualisation design with the needs, expectations, and capabilities of specific audiences.
+Visualisations are also increasingly used to inform lay audiences about their health data and facilitate their understanding of complex information \cite{arcia_2024}. In these settings, decision rules and algorithmic assessments are often embedded within visual summaries, indicators, or feedback messages, shaping how users perceive their health status and the actions they choose to take. This further reinforces the importance of aligning visualisation design with the needs, expectations, and capabilities of specific audiences.
 
 Clearly defined communication goals, the guiding of design through taxonomies, and
 evaluation based on audience-specific outcomes are essential for the
-successful design of visualisations for any audience~\citep{ancker_2024}. 
+successful design of visualisations for any audience \cite{ancker_2024}. 
 These principles emphasise that the success of clinical decision rules and protocols cannot be assessed independently of their visual representation, and that effective visualisation plays a central role in determining whether such systems support understanding, trust, and appropriate action.
 
 ## Future Forward: Wearable Health Technologies
 
-A further driver for novel visualisations and the need for health data to be easily understood is the rapid adoption of wearable health technologies~\citep{ma_making_2025, hicks_best_2019}. The recently released NHS 10 Year Health Plan highlights a move away from hospital to community care, a shift from analogue to digital, and an emphasis on prevention over treatment~\citep{dhsc_2025}. The provision of wearable health monitors, such as smartwatches, fitness bands, and intelligent jewellery, is seen as central to the delivery of this ambitious plan. Most of these devices
+A further driver for novel visualisations and the need for health data to be easily understood is the rapid adoption of wearable health technologies \cite{ma_making_2025, hicks_best_2019}. The recently released NHS 10 Year Health Plan highlights a move away from hospital to community care, a shift from analogue to digital, and an emphasis on prevention over treatment \cite{dhsc_2025}. The provision of wearable health monitors, such as smartwatches, fitness bands, and intelligent jewellery, is seen as central to the delivery of this ambitious plan. Most of these devices
 now include ECG capabilities and allow their wearers to record single,
 and sometimes multi-lead, ECGs. Some devices now incorporate complex
 algorithms capable of warning users if their vital signs deviate from
 normal thresholds. Whilst mostly focused on the detection of
-arrhythmias (e.g., Atrial Fibrillation~\citep{abdelrazik_2025}), there
-is ongoing exploration of their role in acute coronary syndromes~\citep{choi_2025, neri_2023}. Wearables are able to support patient care
+arrhythmias (e.g., Atrial Fibrillation \cite{abdelrazik_2025}), there
+is ongoing exploration of their role in acute coronary syndromes \cite{choi_2025, neri_2023}. Wearables are able to support patient care
 wherever the patient happens to be situated, facilitating diagnostics
 beyond the hospital and enabling a more comprehensive view of a
 patient's health. They can further empower their users to take on a more
 active role in their healthcare by providing data and personalised
 feedback, and encouraging self-monitoring, adherence to healthy
-lifestyles, and informed dialogues with care providers~\citep{ehizogie_2024}. Wearables, and digital technology more generally,
+lifestyles, and informed dialogues with care providers \cite{ehizogie_2024}. Wearables, and digital technology more generally,
 can also contribute to the health literacy of young people and their
-understanding about their own health~\citep{goodyear_2019}. While live
+understanding about their own health \cite{goodyear_2019}. While live
 monitoring of ECG data from consumer-grade wearable devices is not yet a
 reality, its inevitability, combined with the wider benefits conferred
 by constant monitoring and the democratisation of healthcare,
@@ -302,7 +546,7 @@ indicate the benefits of studying ECG visualisation with lay people as well as c
 
 This section outlines our overall research methodology, encompassing the algorithm development and visualisation design, the collection of clinician feedback on the proposed visualisations, and the lay‑person experiment.
 
-## Algorithm Development
+## Algorithm Development {#sec-vis-alg-dev}
 
 The codebase of our full pipeline\footnote{\url{https://github.com/ECG-X/ECG-X_ST-segment-feature-detection-and-visualisation}} is openly available on GitHub under a dual-licensing model: released for non-commercial use under the Creative Commons Attribution‑NonCommercial‑ShareAlike 4.0 International Licence (CC BY‑NC‑SA 4.0), with alternative commercial licensing available upon request.
 We describe the assumptions made and discuss our algorithm in detail, from data preparation and preprocessing to how we detect crucial ECG features for ST-segment analysis.
@@ -313,25 +557,25 @@ This includes a newly introduced method to correct the duration of an ST-segment
 As our algorithm was intentionally designed to produce novel, foundational, human-understandable visualisations to facilitate the interpretation of ECGs, the following assumptions were made:
 
 \begin{itemize}
-    \item Given the complexity and variety of raw ECG signals, we acknowledge that our pipeline is tuned to suit the PTB Diagnostics database~\cite{ptb} specifically, containing clinically labelled, high-quality signals.
+    \item Given the complexity and variety of raw ECG signals, we acknowledge that our pipeline is tuned to suit the PTB Diagnostics database \cite{ptb} specifically, containing clinically labelled, high-quality signals.
     \item We focus on the human-algorithm interaction aspect of algorithm development, using well-known, standard open-source processing packages and algorithms for ECG signal processing.
     \item The proposed visualisation pipeline prioritises perceptual clarity and interpretability over optimal representation of physiological states. Our contribution lies in novel \textit{clinical rule-based visualisations} intended to standardise visual representation rather than to model underlying electrophysiology with maximal accuracy. This design choice reflects the development focus on human interpretation and decision support rather than physiological measurement accuracy (a common trade‑off in CIE design rather than a limitation specific to our method).
 \end{itemize}
 
 ### Data Preparation
 
-Raw ECG data were acquired from the clinically-validated PTB Diagnostic ECG Database~\cite{ptb}, which is openly available and can be downloaded from PhysioNet.
+Raw ECG data were acquired from the clinically-validated PTB Diagnostic ECG Database \cite{ptb}, which is openly available and can be downloaded from PhysioNet.
 Prior to any signal processing, the raw data were converted from WaveForm DataBase (WFDB) format to CSV for ingestion into our \textit{ST-segment feature detection and visualisation} pipeline.
 From the 549 available datasets downloaded and converted to CSV, we grouped them into three categories based on the diagnosis (i.e. reason for admission) provided by the database.
 There were 80~ECG recordings classified as \textit{healthy control}, 368 \textit{myocardial infarction}, and the \textit{other} remaining 101 includes other heart conditions (e.g., cardiomyopathy, bundle branch block, etc.) and miscellaneous.
 We selected data from the \textit{healthy control} and the \textit{myocardial infarction} group as input, as they most likely contain signals without and with ST-elevation, respectively.
 Each recording is represented by a CSV file containing data, including all of the leads provided by the database, from the same recording session.
-An ST-segment lasts approximately 80~ms to 120~ms~\cite{sattar2023}, and since the ECG datasets have varying durations, we configured our pipeline to sample the first 30~s from each recorded signal.
-Each signal therefore has approximately 39 potential ST-segments (based on the mean real-world heart rate of 79.1 beats per minute (bpm)~\cite{Avram2019}) available for analysis and can be visually annotated with our visualisations.
+An ST-segment lasts approximately 80~ms to 120~ms \cite{sattar2023}, and since the ECG datasets have varying durations, we configured our pipeline to sample the first 30~s from each recorded signal.
+Each signal therefore has approximately 39 potential ST-segments (based on the mean real-world heart rate of 79.1 beats per minute (bpm) \cite{Avram2019}) available for analysis and can be visually annotated with our visualisations.
 
 ### Data Preprocessing
 
-A flowchart depicting our full pipeline is shown in Figure~\ref{fig:vis-pipeline}. We utilised SciPy~\cite{2020SciPy-NMeth} and NeuroKit2~\cite{Makowski2021neurokit}, two openly available Python libraries, for signal preprocessing tasks.
+A flowchart depicting our full pipeline is shown in Figure \ref{fig:vis-pipeline}. We utilised SciPy \cite{2020SciPy-NMeth} and NeuroKit2 \cite{Makowski2021neurokit}, two openly available Python libraries, for signal preprocessing tasks.
 The first two steps of preprocessing aimed to reduce noise while preserving the signal morphology.
 
 ```{r}
@@ -342,23 +586,23 @@ The first two steps of preprocessing aimed to reduce noise while preserving the 
 knitr::include_graphics(path = "graphics/vis_pipeline.pdf", dpi = NA)
 ```
 
-Artefacts caused by respiration, movement, electrode impedance, and electrical interference~\cite{Luo2013} distort ECG signal quality~\cite{Zhang2025} and hinder feature detection relevant to ST-segment interpretation and analysis~\cite{Lenis2017}.
-To correct baseline wander, we applied a Butterworth~\cite{butterworth1930} high pass filter, chosen for its accuracy and computational efficiency in medical applications~\cite{Lenis2017}.
-A cut-off frequency at 0.5 Hertz (Hz)~\cite{Zhang2025, Kher2019, Kligfield2007} removed low frequency noise and shifted the signal vertically to centre around zero.
-Then, a second Butterworth bandpass filter (0.5~Hz to 50~Hz) was used to reduce high frequency noise due to electrical (e.g., powerline) and myoelectric interferences~\cite{Zhang2025, Kher2019, Chatterjee2020}, improving signal clarity.
+Artefacts caused by respiration, movement, electrode impedance, and electrical interference \cite{Luo2013} distort ECG signal quality \cite{Zhang2025} and hinder feature detection relevant to ST-segment interpretation and analysis \cite{Lenis2017}.
+To correct baseline wander, we applied a Butterworth \cite{butterworth1930} high pass filter, chosen for its accuracy and computational efficiency in medical applications \cite{Lenis2017}.
+A cut-off frequency at 0.5 Hertz (Hz) \cite{Zhang2025, Kher2019, Kligfield2007} removed low frequency noise and shifted the signal vertically to centre around zero.
+Then, a second Butterworth bandpass filter (0.5~Hz to 50~Hz) was used to reduce high frequency noise due to electrical (e.g., powerline) and myoelectric interferences \cite{Zhang2025, Kher2019, Chatterjee2020}, improving signal clarity.
 Deflections from the raw signals are preserved in the filtered signals, which form the basis of the ECG tracings (with and without visualisations) used in the online experiment with lay participants.
 
-Our third step utilised NeuroKit2 to identify and invert any \textit{inverted signals} (an artefact due to electrode placement during the recording session or pathological causes~\cite{Rosen2014, Rosen2014a, Glancy2014}).
+Our third step utilised NeuroKit2 to identify and invert any \textit{inverted signals} (an artefact due to electrode placement during the recording session or pathological causes \cite{Rosen2014, Rosen2014a, Glancy2014}).
 Signals identified to have predominantly upright features with positive deflection were kept unchanged.
 This is to support detecting ECG waveform features, specifically those relevant to an ST-segment.
 
 ### Pipeline Configuration and Data Quality Check
 
-The pipeline is built to support the 12 conventional leads routinely used in clinical practice~\cite{ashley2004}, where the leads are selectable through configuration for processing.
+The pipeline is built to support the 12 conventional leads routinely used in clinical practice \cite{ashley2004}, where the leads are selectable through configuration for processing.
 The algorithm is also capable of applying the threshold line based on the ST-elevation criteria depending on the age and sex of the patient.
-As our online experiment with lay participants excluded evaluating leads V2 and V3 (see Section~\ref{sec-method-online-exp}), the pipeline was configured accordingly.
+As our online experiment with lay participants excluded evaluating leads V2 and V3 (see Section \ref{sec-method-online-exp}), the pipeline was configured accordingly.
 
-ECG signals from the PTB Diagnostic ECG database were measured within the range of $\pm 16.384$~mV~\cite{ptb}, yet ECG amplitudes are generally below 5~mV~\cite{Xie2020}.
+ECG signals from the PTB Diagnostic ECG database were measured within the range of $\pm 16.384$~mV \cite{ptb}, yet ECG amplitudes are generally below 5~mV \cite{Xie2020}.
 For quality control and to ensure the output ECG images have a consistent height regardless of signal amplitude, we adopted a conservative approach by configuring the pipeline to discard datasets with maximum amplitudes outside $\pm 3$~mV, as well as signals shorter than 30~s.
 Excluding leads V2 and V3, we determined 72.5\% (58 out of 80 recordings) and 64.1\% (236 out of 368 recordings) of the datasets from the \textit{healthy control} and the \textit{myocardial} group, respectively, have maximum amplitudes within $\pm$3~mV.
 In addition, to streamline the remaining steps, we partitioned the 30~s signal by a configurable time segment window (e.g., 5~s) to process.
@@ -367,23 +611,23 @@ For the final output, the number of ECG images produced per signal for a lead is
 ### Feature Detection
 
 Recognising ST-elevation requires analysing the signal against the clinically defined threshold level, an electrical potential displacement from the signal baseline, and can be computed once the baseline is established.
-The baseline, also known as the isoelectric line, represents net zero electrical potential~\cite{Strauss2021}. 
+The baseline, also known as the isoelectric line, represents net zero electrical potential \cite{Strauss2021}. 
 As our filtered signal already centre vertically around zero, we utilised NeuroKit2 to remove the linear trend and define the resulting signal's mean as our baseline.
 Although it approximates the isoelectric line, we acknowledge that our custom baseline may be skewed towards the side with greater cumulative deflection in the waveform.
 
-An ST-segment, shown in Figure~\ref{fig-ecg-signal-explainer}, is defined by the interval from the end of a QRS complex to the start of the following T-wave.
-It is typically an isoelectric period near the baseline or may slope slightly upward in a normal state~\citep{ashley2004, Strauss2021}.
-We utilised NeuroKit2 to identify prominent features of each signal, prepared by the steps discussed in Section~\ref{sec-data-preprocess}.
-Implementation via NeuroKit2 includes the Martinez et al. method~\cite{martinez2004} to identify R-peaks and the discrete wavelet transform (DWT) method to identify onsets and offsets of relevant waves, including the QRS complex and the T-wave, to determine an ST-segment and its J-point.
+An ST-segment, shown in Figure \ref{fig-ecg-signal-explainer}, is defined by the interval from the end of a QRS complex to the start of the following T-wave.
+It is typically an isoelectric period near the baseline or may slope slightly upward in a normal state \cite{ashley2004, Strauss2021}.
+We utilised NeuroKit2 to identify prominent features of each signal, prepared by the steps discussed in Section \ref{sec-data-preprocess}.
+Implementation via NeuroKit2 includes the Martinez et al. method \cite{martinez2004} to identify R-peaks and the discrete wavelet transform (DWT) method to identify onsets and offsets of relevant waves, including the QRS complex and the T-wave, to determine an ST-segment and its J-point.
 
 R-peaks are typically the most prominent feature in an ECG tracing and can be used to compute the average heart rate.
 We achieved this by taking the mean of the interval between two consecutive R-peaks ($\overline{RR}$) using data from lead III.
 
 ### Novel Correction of ST-segment Calculations
 
-As previously highlighted, accurately defining the J-point can be clinically challenging~\cite{carley_2002}, and there is long-standing disagreement and varying practice in defining the ST-segment and the diagnostic window based on it to detect ST-segment elevation~\cite{man_2017}. A fixed time cut-off, such as 40~ms, 60~ms, or 80~ms after the J-point, have been widely used, yet their physiological validity is contested and diagnostic performance is highly sensitive to chosen offsets~\cite{lindow_2020}. As ventricular repolarisation shortens at high heart rates and lengthens at low heart rates through rate-dependent action potential adaptation, a fixed delay from the J-point does not consistently capture the same repolarisation phase across recordings. As a result, a fixed cut-off to define the  diagnostically-important part of the ST-segment may introduce heart-rate--dependent distortions in both visual and algorithmic analysis.
+As previously highlighted, accurately defining the J-point can be clinically challenging \cite{carley_2002}, and there is long-standing disagreement and varying practice in defining the ST-segment and the diagnostic window based on it to detect ST-segment elevation \cite{man_2017}. A fixed time cut-off, such as 40~ms, 60~ms, or 80~ms after the J-point, have been widely used, yet their physiological validity is contested and diagnostic performance is highly sensitive to chosen offsets \cite{lindow_2020}. As ventricular repolarisation shortens at high heart rates and lengthens at low heart rates through rate-dependent action potential adaptation, a fixed delay from the J-point does not consistently capture the same repolarisation phase across recordings. As a result, a fixed cut-off to define the  diagnostically-important part of the ST-segment may introduce heart-rate--dependent distortions in both visual and algorithmic analysis.
 
-Given these limitations and driven by the need to define a diagnostic window of the ST-segment for one of our visualisation types introduced in Section~\ref{sec-design-vis}, we developed a novel algorithm to calculate the ST-segment, $STc$ (ST corrected), inspired by Bazett's formula to correct calculation of the QT interval~\citep{bazett}, which is calculated as:
+Given these limitations and driven by the need to define a diagnostic window of the ST-segment for one of our visualisation types introduced in Section \ref{sec-design-vis}, we developed a novel algorithm to calculate the ST-segment, $STc$ (ST corrected), inspired by Bazett's formula to correct calculation of the QT interval \cite{bazett}, which is calculated as:
 %
 \begin{equation*}
 STc = \frac{ST}{\sqrt{\overline{RR}}},
@@ -398,15 +642,15 @@ By combining morphology‑based delineation with heart‑rate correction, $STc$ 
 ### Visualisations Design and Algorithm
 
 Based on the features detected by the pipeline, visualisations were applied (i.e. visually annotated) on top of the filtered ECG signal.
-The visualisations were designed to increase the salience of the visual features relevant to ST-segment elevation analysis and the subtasks outlined in Section~\ref{sec-method-online-exp}.
-An example of each type of visualisation is shown in Figure~\ref{fig:vis-examples}.
-To reduce the cognitive load of ECG interpretation tasks, we applied strategies taken from Cognitive Load Theory (CLT)~\citep{paas_2020}.
+The visualisations were designed to increase the salience of the visual features relevant to ST-segment elevation analysis and the subtasks outlined in Section \ref{sec-method-online-exp}.
+An example of each type of visualisation is shown in Figure \ref{fig:vis-examples}.
+To reduce the cognitive load of ECG interpretation tasks, we applied strategies taken from Cognitive Load Theory (CLT) \cite{paas_2020}.
 After iterative cycles of discussion regarding visualising clinical rules for ST-elevation during the Responsible Research and Innovation (RRI) workshops, we decided upon a final set of three visualisation types presented in this study.
 
 All three visualisation types feature a dashed threshold line at 0.1~mV above the baseline. 
-The universal inclusion of this line was due to reports that very low levels of ST-elevation may be responsible for disagreements between clinicians regarding the presence or absence of ST-elevation on an ECG~\citep{erling_2004}.
+The universal inclusion of this line was due to reports that very low levels of ST-elevation may be responsible for disagreements between clinicians regarding the presence or absence of ST-elevation on an ECG \cite{erling_2004}.
 However, a threshold-line--only design, or one combined with the baseline, was ruled out during the RRI workshops as they were shown to be ineffective, leading to interpretative uncertainty.
-In addition to the threshold line, we took two different approaches to address another major source of potential disagreement amongst clinicians regarding ST-elevation: the location of the J-point~\citep{carley_2002}. 
+In addition to the threshold line, we took two different approaches to address another major source of potential disagreement amongst clinicians regarding ST-elevation: the location of the J-point \cite{carley_2002}. 
 The first approach, \emph{J-point Marker + Threshold Line}, employs a green marking circle highlighting the J-point on the ECG signal. 
 The colour was chosen to be visible to those with colour-blindness against the red grid background.
 The second approach, \emph{Shading + Threshold Line}, effectively removes viewers' obligation to find a J-point, instead using black coloured shading to display the proportion of the ST-segment sitting above the threshold line. 
@@ -440,15 +684,15 @@ The final visualisation type, \emph{Shading + Threshold Line + J-point Marker}, 
 
 ## Part I: Clinical Validation of Visualisations
 
-Building upon our RRI and stakeholder engagement work conducted throughout the ECG-X project\footnote{www.ecgx.co.uk}, we conducted a clinical validation study focused on a qualitative evaluation of the usefulness and correctness of our visualisation designs by clinical experts. Participants across four specialties (Anaesthesia, Critical Care, Emergency Medicine, and Cardiology) were convenience sampled~\cite{mason_qualitative_2018} as part of their ongoing stakeholder engagement in the project. 
-We aimed to recruit at least five clinicians, a common threshold for formative medical device and software evaluation~\citep{FDA2016HumanFactors}, and our sample size followed established human-factors principles where small expert samples are appropriate for formative, low risk evaluations~\citep{IEC}. All clinicians were based in the UK at the time of evaluation. These specialties were selected after a series of RRI workshops, which identified these groups as regularly interpreting ECGs. 
-Based on the Ethics Decision Tool at the University of Manchester and the NHS Health Research Authority Ethics Toolkit~\cite{nhs_ethics}, the study was exempt from ethical review as we solely consulted with professionals (i) strictly within their professional remit, and (ii) did not collect any personally identifiable information apart from those on the exempt list, i.e. names, professional roles, signed consent, and audio recordings.
+Building upon our RRI and stakeholder engagement work conducted throughout the ECG-X project\footnote{www.ecgx.co.uk}, we conducted a clinical validation study focused on a qualitative evaluation of the usefulness and correctness of our visualisation designs by clinical experts. Participants across four specialties (Anaesthesia, Critical Care, Emergency Medicine, and Cardiology) were convenience sampled \cite{mason_qualitative_2018} as part of their ongoing stakeholder engagement in the project. 
+We aimed to recruit at least five clinicians, a common threshold for formative medical device and software evaluation \cite{FDA2016HumanFactors}, and our sample size followed established human-factors principles where small expert samples are appropriate for formative, low risk evaluations \cite{IEC}. All clinicians were based in the UK at the time of evaluation. These specialties were selected after a series of RRI workshops, which identified these groups as regularly interpreting ECGs. 
+Based on the Ethics Decision Tool at the University of Manchester and the NHS Health Research Authority Ethics Toolkit \cite{nhs_ethics}, the study was exempt from ethical review as we solely consulted with professionals (i) strictly within their professional remit, and (ii) did not collect any personally identifiable information apart from those on the exempt list, i.e. names, professional roles, signed consent, and audio recordings.
 
-The evaluations were undertaken between November 2025 and January 2026 via the video conferencing software Microsoft Teams~\cite{ms-teams} (video function disabled). Participants were included on the basis that they are currently employed clinicians with ``experiential relevance''~\cite[p. 124]{rudestam_surviving_2015} in terms of ECG usage and clinical knowledge. 
+The evaluations were undertaken between November 2025 and January 2026 via the video conferencing software Microsoft Teams \cite{ms-teams} (video function disabled). Participants were included on the basis that they are currently employed clinicians with ``experiential relevance''~\cite[p. 124]{rudestam_surviving_2015} in terms of ECG usage and clinical knowledge. 
 As we aimed to generate data that establishes a representational account of participants’ professional roles, we refrain from including the names of clinicians. 
 All participants received a Participant Information Sheet (PIS) prior to the interview and provided informed consent. Participants were further given the option of withdrawing data up to 14~days after the date of participation, and received a shopping voucher worth Fifteen Pounds Sterling (GBP or £) as a token of appreciation for their time investment.
 
-The evaluations followed a semi-structured guide~\cite{lindlof_qualitative_2017} based on generative questions~\cite{rubin_qualitative_2005} to encourage extensive replies in an open format. The guide was developed during RRI workshops and is grounded in practice-based approaches of Human-Computer Interaction (HCI) to enable investigation of participants' lived experiences with technologies~\cite{kuutti_turn_2014}. 
+The evaluations followed a semi-structured guide \cite{lindlof_qualitative_2017} based on generative questions \cite{rubin_qualitative_2005} to encourage extensive replies in an open format. The guide was developed during RRI workshops and is grounded in practice-based approaches of Human-Computer Interaction (HCI) to enable investigation of participants' lived experiences with technologies \cite{kuutti_turn_2014}. 
 The guide introduced participants to our visualisations, explained how they were designed, and detailed that they are explainable based on clinical rules. We then asked about their clinical correctness, usefulness, and clinicians' preferences, followed by considerations of how they would use them in their clinical practice.
 
 All materials, such as the Ethics Outcomes Letters, validation study guide, and transcripts are openly accessible and were deposited on Figshare with consent from participants\footnote{\url{https://doi.org/10.48420/31042243}}.
@@ -461,7 +705,7 @@ intuitive visual identification of ST-elevation -- as commonly prevalent in STEM
 at least 0.1~mV in any two contiguous leads except V2 and V3. In leads
 V2 and V3, this elevation must be at least 0.2~mV in males aged 40~years or
 older, at least 0.25~mV in males aged under 40~years, and at least
-0.15~mV in females. Motivated by previous work~\citep{alahmadi_2023}, we conducted rounds of RRI workshops with lay people, clinicians regularly interpreting ECGs, and HCI experts to draft the following research pathway.
+0.15~mV in females. Motivated by previous work \cite{alahmadi_2023}, we conducted rounds of RRI workshops with lay people, clinicians regularly interpreting ECGs, and HCI experts to draft the following research pathway.
 
 Since we specifically recruited lay participants who were unfamiliar with ECGs, simply asking participants to spot a STEMI on an ECG, whether with or without the added visualisation, would be a task with a high intrinsic cognitive load. Instead, we segmented this task into smaller, more easily achievable steps. Notably, we:
 
@@ -484,16 +728,16 @@ The task that participants performed can essentially be broken down into a pair 
 ### Crowdsourcing
 
 There is precedent for work investigating ECG interpretation to feature
-lay participants~\citep{alahmadi_2020}, and for crowdsourcing to be used
-in health research~\citep{crequit_2018}. These concepts have intersected
-in the context of crowdsourced data labelling or annotation~\citep{zhu_2014, bahrami_2021, bahrami_2024}. The work
+lay participants \cite{alahmadi_2020}, and for crowdsourcing to be used
+in health research \cite{crequit_2018}. These concepts have intersected
+in the context of crowdsourced data labelling or annotation \cite{zhu_2014, bahrami_2021, bahrami_2024}. The work
 presented here takes influence from psychophysics and visualisation
 design studies that extensively employ crowdsourcing. Crowdsourcing
 affords the rapid collection of large amounts of data, and is
 considerably less expensive than traditional, in-person testing. Data
-quality and demographics issues have caused concern in past research~\citep{chmielewski_2020, peer_2021}, so here we
-follow published guidelines~\citep{peer_2021} to ensure the collection
-of high-quality data. The Prolific platform~\citep{prolific} is used,
+quality and demographics issues have caused concern in past research \cite{chmielewski_2020, peer_2021}, so here we
+follow published guidelines \cite{peer_2021} to ensure the collection
+of high-quality data. The Prolific platform \cite{prolific} is used,
 along with strict pre-screening criteria; participants were required to
 have previously successfully completed at least 100 Prolific studies,
 and were required to have been accepted on at least 95\% of their
@@ -502,13 +746,13 @@ previous submissions.
 ### Open Research
 
 This project was conducted according to the principles of open and
-reproducible research~\citep{ayris_2018}. Hypotheses and analysis plans
+reproducible research \cite{ayris_2018}. Hypotheses and analysis plans
 were pre-registered with the Open Science Framework (OSF)\footnote{https://osf.io/v6tjp}.
 All data and analysis code are maintained in a GitHub repository\footnote{\url{https://github.com/ECG-X/increasing_the_accuracy_of_ST-segment_elevation}}, which also contains instructions for
 building a Docker container to reproduce the computational environment
 in which the paper was written. This facilitates full replication of
 figures, analyses, and the paper itself. 
-The algorithm to create ECG images with visualisations is also accessible (see Section~\ref{sec-vis-alg-dev}).
+The algorithm to create ECG images with visualisations is also accessible (see Section \ref{sec-vis-alg-dev}).
 
 ### Modelling
 
@@ -516,17 +760,17 @@ Our primary outcome measure -- participants' performance on the
 ST-elevation classification task -- is binary. We hence built Generalised
 Linear Mixed Models (GLMMs) of the binomial family to analyse our data.
 As opposed to manually specifying random effects for models, the
-\texttt{buildmer} package (version 2.12~\citep{voeten_2025}) was used in
-R (version 4.5.1~\citep{rcore}) to automate model syntax selection using
+\texttt{buildmer} package (version 2.12 \cite{voeten_2025}) was used in
+R (version 4.5.1 \cite{rcore}) to automate model syntax selection using
 stepwise regression. On provision of a maximal model, \texttt{buildmer}
 identifies the most complex model that successfully converges. The
-\texttt{lme4} package (version 1.1-37~\citep{bates_2015}) supplies the
+\texttt{lme4} package (version 1.1-37 \cite{bates_2015}) supplies the
 \texttt{glmer()} function to \texttt{buildmer} that constructs the GLMM.
 
 ### Stimuli
 
-Our stimuli were designed based on the visualisation pipeline outlined in Section~\ref{sec-vis-alg-dev} and the core principles of our experiment described in Section~\ref{sec-method-online-exp}. 
-The stimuli used in the experiment consisted of static ECG tracings representing single heartbeats from any of the included leads (I, II, III, aVR, aVL, aVF, V1, V4, V5, and V6), displayed either with or without visualisations (see Figure~\ref{fig:vis-examples}). ECG segments were sampled to illustrate the presence or absence of ST-elevation.
+Our stimuli were designed based on the visualisation pipeline outlined in Section \ref{sec-vis-alg-dev} and the core principles of our experiment described in Section \ref{sec-method-online-exp}. 
+The stimuli used in the experiment consisted of static ECG tracings representing single heartbeats from any of the included leads (I, II, III, aVR, aVL, aVF, V1, V4, V5, and V6), displayed either with or without visualisations (see Figure \ref{fig:vis-examples}). ECG segments were sampled to illustrate the presence or absence of ST-elevation.
 
 Several assumptions underlie the construction of our stimuli for experimental purposes.
 First, stimuli assume sufficient signal quality for visually identifiable ECG landmarks, including baseline, J-point, and ST-segment, such that participants can reasonably perform the classification tasks. This was ensured by manually curating and verifying every stimulus included in the experiment.
@@ -539,15 +783,15 @@ These assumptions reflect the controlled nature of the experiment to test the us
 
 ### Procedure
 
-The experiments were built using PsychoPy~\citep{peirce_2019} and hosted on~\url{Pavlovia.org}. 
+The experiments were built using PsychoPy \cite{peirce_2019} and hosted on~\url{Pavlovia.org}. 
 Participation was permitted using laptop or desktop computers only. 
 A flowchart
 depicting the experimental procedure is presented in
-Figure~\ref{fig:exp-flowchart}.
+Figure \ref{fig:exp-flowchart}.
 Participants were first shown the PIS and were asked to provide consent via key presses in response to consent statements. 
 They provided their age in a free text box, followed by their gender identity. 
 Participants were then taken to a 4-minute training module. 
-This consisted of a series of slides outlining the general form of ECG tracings, the rules that define ST-elevation within the experimental context (see Section~\ref{sec-stemi} and Section~\ref{sec-method-online-exp}), and an overview of the particular visualisation condition that they were assigned to.
+This consisted of a series of slides outlining the general form of ECG tracings, the rules that define ST-elevation within the experimental context (see Section \ref{sec-stemi} and Section \ref{sec-method-online-exp}), and an overview of the particular visualisation condition that they were assigned to.
 Between visualisation conditions, the training modules differed only in
 terms of their final slide instructing participants how to use the
 particular visualisation. The training slides are included in the
@@ -577,7 +821,7 @@ following ECG and decide if ST-elevation is present.'' (${n = 116}$,
 black text, experimental trials) or ``Please IGNORE the following ECG
 and click on the centre of the visualisation.'' (${n = 8}$, red text,
 attention check trials). There was no time limit per trial. An example of an
-experimental trial can be seen in Figure~\ref{fig-example-trial}.
+experimental trial can be seen in Figure \ref{fig-example-trial}.
 Participants who successfully completed the experiment were paid pro rata through Prolific at a rate of £6 per hour.
 
 ```{r}
@@ -588,9 +832,9 @@ Participants who successfully completed the experiment were paid pro rata throug
 knitr::include_graphics(path = "graphics/example_trial.png", dpi = NA)
 ```
 
-All participants were recruited with the Prolific platform~\citep{prolific}.
+All participants were recruited with the Prolific platform \cite{prolific}.
 We sought to recruit ${n = 100}$ participants for each of the three between-participants experiments.
-English fluency, normal or corrected-to-normal vision, and having not taken part in any of the RRI workshops described in Section~\ref{sec-method-online-exp} were required for participation. 
+English fluency, normal or corrected-to-normal vision, and having not taken part in any of the RRI workshops described in Section \ref{sec-method-online-exp} were required for participation. 
 Participants were also instructed not to take part if they had prior medical knowledge or experience interpreting ECGs.
 
 ### Experimental Design
@@ -598,46 +842,640 @@ Participants were also instructed not to take part if they had prior medical kno
 We employed a mixed design. Within participants, all saw the same 58 ECG tracings without visualisations (29 with ST-elevation, 29 without).
 The between-participants factor was the type of ECG visualisation utilised.
 Each group saw the same 58 ECG tracings with the different
-visualisations shown in Figure~\ref{fig:vis-examples}. 
+visualisations shown in Figure \ref{fig:vis-examples}. 
 Participants saw 116 experimental and 8 attention check items in a fully randomised order.
 Dependent variables were participant responses to ECG stimuli and the speed with which they provided their responses.
-All experimental code, materials, and instructions are hosted on GitLab as three separate experiments\footnote{https://gitlab.pavlovia.org/Strain/ecg_x_jt}\fnsep\footnote{https://gitlab.pavlovia.org/Strain/ecg_x_st}\fnsep\footnote{https://gitlab.pavlovia.org/Strain/ecg_x_stj}.
+All experimental code, materials, and instructions are hosted on GitLab as three separate
+experiments\footnote{\url{https://gitlab.pavlovia.org/Strain/ecg_x_jt}}\fnsep\footnote{\url{https://gitlab.pavlovia.org/Strain/ecg_x_st}}\fnsep\footnote{\url{https://gitlab.pavlovia.org/Strain/ecg_x_stj}}.
 
 # Results
 
+Below we report the results of our two evaluations: a clinical validation study
+with clinicians regularly interpreting ECGs (Part I), and a reproducible online
+experimental study with lay people, asking participants to classify ECG tracings if ST-elevation is present or not (Part II).
+
 ## Part I: Clinical Validation of Visualisations {#valid-results}
+
+Six clinicians across four specialties (Anaesthesia, Critical Care, Emergency Medicine,
+and Cardiology) took part in our clinical validation. A participant split outlining
+specialty and training level can be seen in Table \ref{tbl-specialty}.
+
+```{r}
+#| label: tbl-specialty
+#| tbl-cap: "Participant demographics split by specialty and training stage"
+#| include: true
+
+df <- data.frame(
+  `Participant Number (P)` = 1:6,
+  Specialty = c("EM", "Cardio", "An&CC", "EM", "EM", "Cardio"),
+  `Training Stage` = c("Consultant", "ST4+", "Consultant", "ST4+", "SAS", "ST4+"),
+  check.names = FALSE
+)
+
+kbl(df,
+    col.names = c("Participant Number (P)", "Specialty", "Training Stage"),
+    booktabs = TRUE,
+    align = c("l", "l", "l"),
+    format = "latex") |>
+  kable_styling(
+    latex_options = c("hold_position"),
+    full_width = FALSE,
+    position = "center"
+  ) |>
+  column_spec(1, width = "4cm") |>
+  column_spec(2, width = "3cm") |>
+  column_spec(3, width = "3cm") |>
+footnote(
+    general = sprintf("Anaesthesia (An); Critical Care (CC); Emergency Medicine (EM); Cardio (Cardiology). A comprehensive list outlining UK medical doctor titles and training stages can be found in \\\\cite{bma_training}."),
+    general_title = "Notes:",
+    footnote_as_chunk = TRUE,
+    threeparttable = TRUE,
+    escape = FALSE
+  )
+```
 
 ### Preference for Distinct Visual Cues
 
+All clinicians consistently identified the green circle marking the J-point as the most effective and reliable cue for detecting ST-elevation. Its distinct colour and constant presence in both elevated and non-elevated ST-segments were seen as highly beneficial, particularly in complex or artefact-prone recordings, making it easy to spot even when the baseline was noisy. The green circle's reliability was further emphasised, with clinicians noting that its continuous display -- in visualisations using the J-point marker -- provided reassurance that the visualisation algorithm was functioning as intended. The threshold (dashed) line was also widely valued, as it provided a clear, guideline-based reference for determining whether the J-point was elevated.
+
+Shading to indicate ST-elevation was recognised for its instant visual cue and clarity, making it immediately obvious when elevation was present. However, several clinicians expressed concern that shading could obscure important waveform details, especially in ECGs with significant electrical interference or movement artefacts. One participant noted that ``the black actually takes away from highlighting'' (P2), with another commenting that combining shading with the green circle could be ``the best and the worst of both'' (P4), offering clarity but also introducing potential visual clutter. Interestingly, concerns about visual saliency were balanced by perspectives emphasising the value of over‑sensitivity: P6 argued that visualisations should err towards false positives, as early over‑identification was clinically safer than missing subtle pathology, particularly for users who interpret ECGs less frequently or in high‑pressure settings. From this standpoint, even visually prominent cues -- such as shading or the full combined visualisations -- were seen not as drawbacks but as safety features that could prompt timely attention to a potentially abnormal morphology. This variability in perceiving the most salient cue was further highlighted by P6, who emphasised that the combined visualisation -- including the threshold line, J‑point marker, and shading -- was the most informative from a cardiology perspective, as it offered an immediate indication of abnormal ST‑segment morphology while reducing the cognitive effort otherwise required to manually assess elevation. Many clinicians nonetheless suggested that the shading should be optional or toggleable, allowing users to adapt the interface to their clinical needs and preferences.
+
 ### Trust in Guideline-Based Visuals
+
+There was strong consensus that visualisations grounded in established clinical guidelines, such as those from the American Heart Association (AHA) or European Society of Cardiology (ESC), fostered greater trust and transparency. Clinicians appreciated that these rule-based tools could be easily referenced and updated in line with evolving standards. P1 stated that ``international guidelines always back you up'', suggesting confidence in the system's recommendations. The ability to trace the logic of the visualisations back to a specific guideline was seen as particularly valuable for maintaining clinical assurance and regulatory compliance (P4).
 
 ### Role in Contemporary Computerised Interpretation of ECG
 
+Our visualisations were widely regarded as a valuable complement to Contemporary Computerised Interpretation of ECG (CIE). Clinicians reported that visualisations helped clarify algorithmic outputs, especially when the automated printout was ambiguous or difficult to interpret. As one participant explained, ``having both the interpretation and the visualisation is really useful [...] it lets you see what it's [the CIE] talking about -- or what you missed'' (P3). Visual cues were also seen as helpful for confirming or questioning the automated diagnosis, supporting more confident and informed decision-making (P4). One clinician highlighted that CIE often adds bias by suggesting a possible diagnosis rather than simply highlighting a feature, and added that a visualisation ``prompts a clinician in an unbiased way [...], because it doesn't take away the human's autonomy. It doesn't take away the human decision-making factor'' (P2).
+
 ### Educational Value
+
+The educational benefits of visual cues were repeatedly highlighted. Clinicians described how these tools could support less experienced colleagues and trainees, helping them to develop ECG interpretation skills and clinical judgement. P2 remarked that ``prompting with cues actually will help in terms of training, learning, and retaining clinical autonomy''. The ability to toggle visualisations on and off was seen as particularly useful for educational purposes, allowing users to test their own interpretation before revealing the algorithm's guidance (P4).
 
 ### Universal Application and Pre-Hospital Utility
 
+There was a clear preference for universal application of these visual aids across all ECGs, rather than restricting them to borderline cases. Clinicians felt that routine use would help practitioners become familiar with the cues, standardise interpretation, and reduce variability in practice. This standardisation was also seen as enhancing patient safety by lowering the risk of missed or misclassified ST‑segment elevation and prompting timely escalation, particularly for less experienced staff (P3). Importantly, several clinicians noted that J‑point localisation can be difficult and ``subjective'' (P1), with further remarks on inter-observer variability: ``ask 20 consultants, you get 10 different J-points'' (P3) and baseline artefacts complicating identification (P2). The potential utility for pre-hospital providers was also highlighted, with one participant describing how a clear, rules-based visualisation could support rapid decision-making and streamline care pathways: ``this visualisation would be a very clear rules-based `Yes, this meets the criteria!'\,'' (P4).
+
 ## Part II: Online Experiment with Lay Participants {#online-results}
 
-## Additional Analyses
+105 participants completed the \emph{J-point Marker + Threshold Line} experiment.
+5 participants failed more than 3 out of 8 attention check questions and therefore had their submissions rejected in accordance with pre-registration stipulations. Data from 100 participants were included in the analysis. 107 participants completed the \emph{Shading + Threshold Line} experiment. 4 participants had their submissions rejected, with data from 103 participants included in the analysis.
+111 participants completed the \emph{Shading + Threshold Line + J-point Marker} experiment. 
+11 participants had their submissions rejected, with data from 100 being included in the full analysis.
+152 participants self-identified as male and 151 as female.
+Participants' mean age was 37.5 (${SD = 13.2}$) years.
+
+```{r}
+#| label: fig-summary-vis
+#| include: true
+#| fig-asp: 1.25
+#| fig-cap: "Mean Percentage Correctness Statistics: bars show mean percentage correctness for each combination of ST-elevation presence, visualisation type, and visualisation presence conditions. Standard errors are plotted as error bars."
+
+label_map <- c(
+  "nvis_nst" = "Visualisation Absent\nNo ST-elevation",
+  "nvis_st"  = "Visualisation Absent\nST-elevation",
+  "vis_nst"  = "Visualisation Present\nNo ST-elevation",
+  "vis_st"   = "Visualisation Present\nST-elevation"
+)
+
+combined_df %>%
+  mutate(grand_condition = factor(grand_condition,
+                             levels = c("JT", "ST", "STJ"),
+                             labels = c("J-point Marker +\nThreshold Line",
+                                        "Shading +\nThreshold Line",
+                                        "Shading + Threshold Line +\nJ-point Marker")),
+    vis_st_combo = paste0(vis_condition, "_", ST_condition),
+    plotting_label = recode(vis_st_combo,
+                            "nvis_nst" = "Visualisation Absent\nNo ST-elevation",
+                            "nvis_st"  = "Visualisation Absent\nST-elevation",
+                            "vis_nst"  = "Visualisation Present\nNo ST-elevation",
+                            "vis_st"   = "Visualisation Present\nST-elevation"),
+    plotting_label = factor(plotting_label,
+                            levels = c("Visualisation Absent\nNo ST-elevation",
+                                       "Visualisation Absent\nST-elevation",
+                                       "Visualisation Present\nNo ST-elevation",
+                                       "Visualisation Present\nST-elevation"))) %>%
+  ggplot(aes(x = plotting_label, y = as.numeric(correct), fill = grand_condition)) +
+  stat_summary(fun = mean, geom = "bar", size = 1) +
+  stat_summary(fun.data = ggplot2::mean_se, geom = "errorbar", width = 0) +
+  stat_summary(fun = mean, geom = "text",
+               aes(label = scales::percent(..y.., accuracy = 1)),
+               vjust = 0.35, hjust = 1.5, color = "black", size = 3.5) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_brewer(palette="Dark2") +
+  coord_flip(ylim = c(0.5, 1)) +
+  facet_wrap(~ grand_condition, ncol = 1,
+             scales = "free_y",
+             strip.position = "right") +
+  theme(strip.text = element_text(size = 12),
+        axis.title.x = element_blank()) +
+  guides(fill = F) +
+  labs(y = "Percentage Correct",
+       x = "") +
+  theme_ggdist() +
+  theme(panel.grid.major.x = element_line())
+
+```
+
+```{r}
+#| label: model-vis-nvis
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+vis_nvis_model <- buildmer(correct ~ vis_condition +
+                           (1 + vis_condition | participant) +
+                           (1 + vis_condition | item),
+                         data = combined_df,
+                         family = binomial)
+```
+
+```{r}
+#| label: model-comparison-vis-nvis
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+# build comparison model with fixed effects term removed using
+# comparison function defined in the preamble
+
+vis_nvis_model_comparison <- comparison(vis_nvis_model)
+```
+
+```{r}
+#| label: anova-vis-nvis
+
+# run ANOVA between experimental and comparison models
+# outputs stats in global environment
+
+# this function handles assignment of buildmer objects to glmer objects
+
+anova_results(vis_nvis_model, vis_nvis_model_comparison)
+```
+
+```{r}
+#| label: model-vis-nvis-RT
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+vis_nvis_RT_model <- buildmer(reaction_time ~ vis_condition +
+                           (1 + vis_condition | participant) +
+                           (1 + vis_condition | item),
+                         data = combined_df)
+```
+
+```{r}
+#| label: model-comparison-vis-nvis-RT
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+# build comparison model with fixed effects term removed using
+# comparison function defined in the preamble
+
+vis_nvis_RT_model_comparison <- comparison(vis_nvis_RT_model)
+```
+
+```{r}
+#| label: anova-vis-nvis-RT
+
+# run ANOVA between experimental and comparison models
+# outputs stats in global environment
+
+# this function handles assignment of buildmer objects to glmer objects
+
+anova_results(vis_nvis_RT_model, vis_nvis_RT_model_comparison)
+```
+
+Figure \ref{fig-summary-vis} contains a summary of the results across
+the whole experiment. Each experimental condition is plotted separately,
+with standard errors plotted as error bars. To investigate the first
+hypothesis, that participants' performance on the ST-elevation
+classification task would be more accurate when a visualisation is
+present than when one is absent, we built a model whereby
+performance is predicted by whether or not a particular trial featured a
+visualisation. Our first hypothesis was supported. A likelihood ratio
+test revealed that the model including the presence or absence of a
+visualisation explained significantly more variance than a null model
+($\chi^2$(`r in_paren(vis_nvis_model.df)`) =
+`r printnum(vis_nvis_model.Chisq)`, *p*
+`r printp(vis_nvis_model.p, add_equals = TRUE)`).
+This model featured random intercepts for items and participants, and random slopes for participants with regard to the presence or absence of a visualisation.
+Our first hypothesis therefore received support in this experiment.
+We used the \texttt{emmeans} package (version 1.11.2-8 \cite{lenth_2025}) to interpret the probabilities of participants choosing correctly on the ST-elevation classification task; Table \ref{tbl-emm-vis-nvis} displays
+these statistics, along with standard errors and 95\% confidence intervals (CI).
+Figure \ref{fig-violin-vis-nvis} shows violin plots of mean correctness separately for visualisation-present and visualisation-absent conditions.
+
+```{r}
+#| label: tbl-emm-vis-nvis
+#| include: true
+#| tbl-cap: Log odds of success in the ST-elevation task separately for visualisation-present and visualisation-absent conditions.
+
+tbl_df_vis_nvis <- make_emm_table(vis_nvis_model, vis_condition) %>%
+  rename("Condition" = "vis_condition") %>%
+  mutate("Condition" = recode(Condition,
+                              nvis = "Visualisation-absent",
+                              vis = "Visualisation-present"))
+
+kbl(tbl_df_vis_nvis, booktabs = T, digits = c(0, 2, 3, 2))
+```
+
+```{r}
+#| label: fig-violin-vis-nvis
+#| include: true
+#| out-width: "100*"
+#| fig-asp: 0.5
+#| fig-env: "figure*"
+#| fig-cap: Distributions of mean correctness percentages for visualisation-present and visualisation-absent conditions. Boxplots show medians and interquartile ranges. Means of mean correctness percentages are shown as dots.
+
+combined_df %>%
+  group_by(participant, vis_condition) %>%
+  mutate("vis_condition" = recode(vis_condition,
+                                  "vis" = "Visualisation\nPresent",
+                                  "nvis" = "Visualisation\nAbsent")) %>%
+  summarise(percent_correct = mean(correct) * 100) %>%
+  ggplot(aes(x = vis_condition, y = percent_correct, fill = vis_condition)) +
+  geom_violin(trim = T, alpha = 0.5) +
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  scale_fill_brewer(palette="Dark2") +
+  labs(y = "Percentage Correct") +
+  stat_summary(fun.y = "mean", geom = "point", shape = 16, size = 3) +
+  theme_ggdist() +
+  theme(legend.position = "none",
+        axis.title.y = element_blank(),
+        axis.text.y = element_text(colour = "black", size = 11),
+        axis.text.x = element_text(size = 10)) +
+  coord_flip()
+```
+
+To investigate the second hypothesis, that participants would make
+quicker judgements of ST-elevation when visualisations were present
+versus when they were absent, we built a linear mixed effects model
+whereby participant judgement speed was predicted by the presence or
+absence of a visualisation. A likelihood ratio test revealed that the
+model including reaction time explained significantly more variance than
+the null model (${\chi^2(1) = 27.56}$, ${p < .001}$). This
+model featured random intercepts for items and participants.
+Table \ref{tbl-vis-nvis-RT} shows mean reaction times for
+visualisation-present and visualisation-absent conditions, along with
+standard errors and 95\% confidence intervals. Our second hypothesis
+therefore also received support in this experiment; participants made
+ST-elevation classification decisions significantly more quickly when a
+visualisation was present.
+
+```{r}
+#| label: tbl-vis-nvis-RT
+#| include: true
+#| tbl-cap: Mean reaction times for visualisation-present and visualisation-absent conditions, along with standard errors and 95% CIs. On average, participants were 0.52 seconds quicker when a visualisation was present.
+
+table_df_vis_nvis_RT <- make_emm_table(vis_nvis_RT_model, vis_condition) %>%
+  rename(`Mean RT (s)` = `Log odds of Success`) %>%
+  rename("Condition" = "vis_condition") %>%
+  mutate("Condition" = recode(Condition,
+                              nvis = "Visualisation-absent",
+                              vis = "Visualisation-present"))
+
+kbl(table_df_vis_nvis_RT, booktabs = T, digits = c(0, 2, 3, 2))
+```
+
+## Additional Analyses {#sec-add-analyses}
+
+```{r}
+#| label: model-ST-NST
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+# fit first model that compares accuracy across ST-elevation present 
+# and ST-elevation absent conditions
+
+st_nst_model <- buildmer(correct ~ ST_condition +
+                           (1 + ST_condition | participant) +
+                           (1 + ST_condition | item),
+                         data = combined_df,
+                         family = binomial,
+                         buildmerControl(
+                           include = correct ~ ST_condition
+                         )
+                        )
+
+# use the `include` argument to force inclusion of fixed effect. The fixed effect
+# does not explain a significant amount of variance, and therefore is dropped by
+# buildmer without including this option
+```
+
+```{r}
+#| label: model-comparison-ST-NST
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+# build comparison model with fixed effects term removed using
+# comparison function defined in the preamble
+
+st_nst_model_comparison <- comparison(st_nst_model)
+```
+
+```{r}
+#| label: anova-ST-NST
+
+# run ANOVA between experimental and comparison models
+# outputs stats in global environment
+
+# this function handles assignment of buildmer objects to glmer objects
+
+anova_results(st_nst_model, st_nst_model_comparison)
+```
+
+```{r}
+#| label: model-vis-type
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+# first, make a new df that only includes visualised conditions
+
+vis_type_df <- combined_df %>% filter(vis_condition == "vis") %>%
+  mutate(across(c("grand_condition", "ST_condition"), as.factor))
+
+# then, build experimental model with buildmer
+# as above with the include argument
+
+vis_type_model <- buildmer(correct ~ grand_condition +
+                           (1 + grand_condition | participant) +
+                           (1 + grand_condition | item),
+                         data = vis_type_df,
+                         family = binomial,
+                         buildmerControl(
+                           include = correct ~ grand_condition
+                         )
+                        )
+```
+
+```{r}
+#| label: model-comparison-vis-type
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+# build comparison model with fixed effects term removed using
+# comparison function defined in the preamble
+
+vis_type_model_comparison <- comparison(vis_type_model)
+```
+
+```{r}
+#| label: anova-vis-type
+
+# run ANOVA between experimental and comparison models
+# outputs stats in global environment
+
+# this function handles assignment of buildmer objects to glmer objects
+
+anova_results(vis_type_model, vis_type_model_comparison)
+```
+
+```{r}
+#| label: model-vis-type-with-interaction
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+# as there was no significant effect of vis type above, check whether there is
+# one when ST-elevation present or absent is included as an interactive effect
+
+# reset contrast for new df
+
+contrasts(vis_type_df$grand_condition) <- contr.sum(3)
+contrasts(vis_type_df$ST_condition) <- contr.sum(2)
+
+vis_type_interact_model <- buildmer(correct ~ grand_condition * ST_condition +
+                           (1 + grand_condition | participant) +
+                           (1 + grand_condition | item),
+                         data = vis_type_df,
+                         family = binomial)
+```
+
+```{r}
+#| label: model-comparison-vis-type-interact
+#| eval: !expr params$eval_models
+#| cache: !expr params$eval_models
+
+# build comparison model with fixed effects term removed using
+# comparison function defined in the preamble
+
+vis_type_interact_model_comparison <- comparison(vis_type_interact_model)
+```
+
+```{r}
+#| label: anova-vis-type-interact
+
+# run ANOVA between experimental and comparison models
+# outputs stats in global environment
+
+# this function handles assignment of buildmer objects to glmer objects
+
+anova_results(vis_type_interact_model, vis_type_interact_model_comparison)
+```
+
+Beyond our experimental hypotheses, both of which received support,
+there are a multitude of other models that may be built to further investigate the nuances of ST-elevation classification amongst lay participants.
+First, we built a model whereby performance on the ST-elevation classification task was predicted by whether or not a particular ECG tracing actually showed ST-elevation.
+A likelihood ratio test between this model and the null revealed no significant differences ($\chi^2$(`r in_paren(st_nst_model.df)`) =
+`r printnum(st_nst_model.Chisq)`, *p*
+`r printp(st_nst_model.p, add_equals = TRUE)`), suggesting that instances of ST-elevation and no ST-elevation are processed symmetrically by participants.
+This model featured random intercepts for items and
+participants, and random slopes for participants with regard to the presence or absence of ST-elevation.
+To further understand how the \emph{type} of visualisation used impacts participants' classifications of ST-elevation, 
+we built a model whereby performance on the task was predicted by the type of visualisation employed. 
+This model only used data from trials that featured a visualisation.
+A likelihood ratio test between this model and the null, again, revealed no significant differences ($\chi^2$(`r in_paren(vis_type_model.df)`) =
+`r printnum(vis_type_model.Chisq)`, *p*
+`r printp(vis_type_model.p, add_equals = TRUE)`), suggesting that while participants benefitted from the presence of a visualisation, they benefitted approximately equally regardless of visualisation type.
+
+Despite finding no evidence of fixed effects of either ST-elevation
+presence or visualisation type, it may be that there is an interaction
+present that could help explain the differences in mean correctness
+between visualisation types seen in Figure \ref{fig-summary-vis}. To
+this end, we built a model whereby participants' performance on the
+ST-elevation classification task was predicted by both the type of
+visualisation and whether or not the ECG tracing objectively displayed
+ST-elevation. A likelihood ratio test comparing this model to one with
+the fixed effects removed revealed significant differences ($\chi^2$(`r in_paren(vis_type_interact_model.df)`) =
+`r printnum(vis_type_interact_model.Chisq)`, *p*
+`r printp(vis_type_interact_model.p, add_equals = TRUE)`). This model featured
+random intercepts for items and participants, and random slopes for
+items with regard to the type of visualisation used.
+
+```{r}
+#| label: fig-vis-type-interact
+#| include: true
+#| fig-cap: "Comparing ST-elevation Present vs Absent: Log odds of success on the ST-elevation classification task plotted separately for each visualisation type, in both ST-elevation present and ST-elevation absent conditions. Standard errors are shown as error bars."
+
+plotting_df <- make_emm_table(vis_type_interact_model, ST_condition*grand_condition)
+
+plotting_df %>%
+   mutate(grand_condition = factor(grand_condition,
+                             levels = c("JT", "ST", "STJ"),
+                             labels = c("J-point Marker +\nThreshold Line",
+                                        "Shading +\nThreshold Line",
+                                        "Shading + Threshold Line +\nJ-point Marker")),
+          ST_condition = recode(ST_condition,
+                                st = "ST-elevation\nPresent",
+                                nst = "ST-elevation\nAbsent")) %>%
+  ggplot(aes(x = ST_condition, 
+             y = `Log odds of Success`,
+             fill = grand_condition)) +
+  geom_col() +
+  geom_linerange(aes(ymin = `Log odds of Success` - `Standard Error`,
+                     ymax = `Log odds of Success` + `Standard Error`)) +
+    geom_text(aes(label = round(`Log odds of Success`, 2)), 
+            vjust = 3.95, size = 3.5, color = "black") +
+  theme_ggdist() +
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  scale_fill_brewer(palette="Dark2") +
+  facet_wrap(~grand_condition, ncol = 3)
+```
+
+```{r}
+#| label: tbl-contrasts-interact
+#| include: true
+#| tbl-cap: Contrasts between ST-elevation present and ST-elevation absent conditions for each visualisation type. The $p$-values are adjusted using the Tukey method for multiple comparisons.
+
+build_contrasts_df <- function (model) {
+
+if (class(model) == "buildmer") model <- model@model
+
+contrasts_df <- as.data.frame(emmeans(model,
+                                  pairwise ~ grand_condition*ST_condition)[2]) %>%
+  filter(contrasts.contrast %in% c("JT st - JT nst",
+                                 "ST st - ST nst",
+                                 "STJ st - STJ nst"))
+
+return(contrasts_df)
+
+}
+
+table_df <- build_contrasts_df(vis_type_interact_model)
+
+table_df %>%
+  select(-c("contrasts.df")) %>%
+  mutate(contrasts.contrast = recode(contrasts.contrast,
+                                     "JT st - JT nst" = "J-point Marker + Threshold Line",
+                                     "ST st - ST nst" = "Shading + Threshold Line",
+                                     "STJ st - STJ nst" = "Shading + Threshold Line + J-point Marker")) %>%
+  rename("Visualisation type" = contrasts.contrast,
+         "Estimate" = contrasts.estimate,
+         "Standard Error" = contrasts.SE,
+         "$Z$-ratio" = contrasts.z.ratio,
+         "p" = contrasts.p.value) %>%
+  mutate(p = scales::pvalue(p)) %>%
+  rename("$p$-value" = "p") %>%
+  kbl(booktabs = T, digits = c(0, 2, 2, 2, 3), escape = F,
+      format = "latex") %>%
+  kable_styling(font_size = 8, full_width = TRUE) %>%
+  column_spec(1, width = "6cm") %>%
+  column_spec(2, width = "1.2cm") %>%
+  column_spec(3, width = "2cm") %>%
+  column_spec(4, width = "1.2cm") %>%
+  column_spec(5, width = "1.2cm")
+```
+
+To explore this interaction further, we plot log odds of success for
+each visualisation type separately for ST-elevation present and
+ST-elevation absent conditions in Figure \ref{fig-vis-type-interact}.
+Statistical testing between ST-elevation present and ST-elevation absent
+conditions for each visualisation was performed with the
+\texttt{emmeans} package and is shown in
+Table \ref{tbl-contrasts-interact}. There are significant differences
+between participants' performance in ST-elevation present and
+ST-elevation absent conditions for each visualisation type. In the \emph{J-point Marker + Threshold Line} 
+condition, participants performed significantly better when ST-elevation was absent, whereas in the
+\emph{Shading + Threshold Line} and \emph{Shading + Threshold Line + J-point Marker}
+conditions, participants performed significantly better when ST-elevation was present.
 
 # Discussion
 
+This paper brings together two complementary investigations of rule-based visualisations to detect ST-elevation: a qualitative validation study with clinical experts (Part I), to develop understanding of how these visualisations may support both non-expert and expert users in detecting ST-elevation and an online, controlled experiment with lay people (Part II).
+
+Across both studies we found clear evidence that visualisations based on clinical rules can meaningfully improve the identification of ST-elevation.
+In Part I, clinicians consistently endorsed visualisations -- particularly the J-point marker and the threshold line -- as useful, reliable, and aligned with their clinical needs. Importantly, they explained why visualisations were helpful beyond simply presenting a binary automated judgement.
+In Part II, lay people achieved significantly higher accuracy and faster reaction times when visualisations were present compared to when they were absent. 
+
 ## Part I: Clinical Validation of Visualisations {#valid-disc}
 
-### 
+This section presents findings from the clinical evaluation of the proposed ECG visualisations, focusing on clinicians’ qualitative perceptions of their reliability, clinical correctness, and usefulness in supporting decision‑making within their respective specialties. Particular attention is paid to how transparency, rule‑based design, and explicit visual cues influenced trust, interpretability, and perceived clinical value in real‑world diagnostic contexts.
 
-### 
+### Trust and Transparency Through Rule-based Visualisations
 
-### 
+Across all clinicians, visualisations based on clinical rules were seen as trustworthy precisely because they reflected current clinical guidelines. Participants described this transparency as useful and complementary to automated readouts, which can often be opaque or misleading. Unlike probabilistic models, the visualisations made their logic visible and clinicians highlighted the importance of being able to comprehend \textit{why} a computer suggested that there might be ST-elevation present rather than receiving an unintuitive text prompt. This traceability increased clinicians' confidence in the visualisations and can be seen as reducing a cognitive burden associated with the interpretation of algorithmic decisions. Several clinicians described the visualisations as providing ``back‑up'' evidence, helping them verify or challenge automated interpretations rather than replacing clinical judgement. This is particularly relevant given the well‑documented inconsistencies in existing CIE systems \cite{smulyan_computerized_2019, schlapfer_computer-interpreted_2017}.
+
+### J-point Localisation and the Potential for Standardisation
+
+A dominant theme was the recognition that J‑point identification is both highly variable and a major contributor to inter-rater inconsistency. Clinicians openly acknowledged the difficulty inherent in locating the J‑point, consistent with earlier research documenting disagreement among trained practitioners \cite{carley_2002, erling_2004}. The J‑point marker was therefore seen as the most valuable aspect of the visualisations. Participants described it as a reassuring, constant, and highly visible cue that mitigated the subjectivity inherent in standard interpretation without visualisations. Because clinicians agreed that ST‑segment elevation is often missed or misclassified due to ambiguous J‑point placement, a consistent visual anchor has the potential to standardise interpretation across experience levels and clinical environments. Clinicians further noted that this could be particularly impactful in high‑pressure contexts such as acute care, where rapid identification of ST‑segment elevation is critical for optimising treatment pathways \cite{ibanez_2018}. The potential for standardisation also extended to pre‑hospital settings and emergency medical services, with several clinicians highlighting the value of a rule‑based visualisation that could support paramedics and first responders in making time‑critical decisions.
+
+### Educational and Workflow Benefits
+
+Clinicians consistently described our visualisations as beneficial educational tools. Several participants highlighted their value for students, junior staff, and colleagues who perform ECG interpretation less frequently. The visualisations were perceived as aids that could help users progressively build interpretative skills, echoing the role of perceptual cues in supporting learning and reducing cognitive load \cite{paas_2020, northdruft_1993}. Importantly, clinicians also noted that effective educational use would require the ability to toggle visualisations on and off, as this flexibility would allow learners to test their own interpretation before revealing the visual guidance, supporting independent clinical reasoning whilst providing confirmatory feedback.
+
+Regarding diagnostic workflows, clinicians reported that the visual cues could complement, rather than replace, existing CIE outputs. In cases where automated interpretations were ambiguous, the visualisations helped clarify the underlying rationale, thereby enabling better informed clinical decisions. Several clinicians remarked that the combined availability of textual interpretation and rule-based visual cues could help to reduce errors, enhance situational awareness, and promote more efficient decision-making, particularly in complex borderline cases. This finding resonates with prior research showing that explainability improves trust and effective human-AI collaboration \cite{elul_meeting_2021, burgess_healthcare_2023, asan_artificial_2020}.
 
 ## Part II: Online Experiment with Lay Participants {#online-disc}
 
-### Visualisation Improves Performance
+Both hypotheses presented in Section \ref{sec-hypotheses} received full support. Participants
+were reliably able to classify instances of ST-elevation in ECG tracings with minimal training, and were both more accurate and quicker when provided with novel visualisations based on clinical rules that were designed to assist them in this task. Beyond our stated hypotheses, there is also evidence that different types of visualisation are more effective depending on whether or not the ECG tracing objectively shows ST-elevation, with the \emph{Shading + Threshold Line} and
+\emph{Shading + Threshold Line + J-point Marker} visualisation types performing best when ST-elevation was present and the \emph{J-point Marker + Threshold Line} visualisation performing best when ST-elevation was absent.
 
-### Visualisation Type and Mechanism of Action
+### Visualisation Improves Performance {#sec-vis-improves-performance}
+
+Participants had a significantly higher log odds of success when visualisations were present compared to when they were absent. 
+In terms of raw scores, participants had an 81.37\% chance of being correct when a visualisation was present, compared to a 66.06\% chance of being correct when there was no visualisation present. 
+Generally, the participants in our study exhibited accuracy rates in line with those seen in clinicians \cite{mccabe_2013, veronese_2016}, with the caveat that the clinicians in those studies observed full 12-lead ECGs compared to the single-lead, single-heartbeat stimuli used here. 
+In terms of the base task itself, identifying ST-elevation, lay participants performed comparably to clinicians.
+This is also in agreement with previous work \cite{alahmadi_2019a, alahmadi_2019b, alahmadi_2020}, demonstrating that lay people can be trained to successfully interpret ECGs and that novel additions of visualisations help them to do so.
+
+Participants were also quicker at making classification decisions across the board when visualisations were present compared to when they were absent (see Table \ref{tbl-vis-nvis-RT}).
+To our knowledge this is the first experimental study in which participants (lay or otherwise) classified solely on single-lead, single-heartbeat ECG tracings.
+Even when visualisations were absent, participants still made quick classification
+decisions.
+With only 4 minutes of basic training, participants were able to perform the task quickly and successfully, and provided a large amount of high-quality data. This finding is promising for future work into how lay people interpret healthcare visualisations.
+
+### Visualisation Type and Mechanism of Action {#sec-vis-type-mech}
+
+Each visualisation type was designed based on the clinical rules outlined in Section \ref{sec-stemi}.
+Ignoring the contiguity rule, the rule for classifying ST-elevation in the leads chosen is 0.1~mV of elevation at the J-point.
+The visualisations were designed to support participants' completion of the task: finding the J-point and checking the level of elevation. 
+The dashed threshold line at 0.1~mV was included in the visualisations to address borderline issues where low levels of ST-elevation are difficult to identify \cite{erling_2004}.
+The J-point marker supported participants in locating the J-point, and the shading reduced the task load by removing the obligation to manually locate the J-point.
+Examples of all visualisation types, including an ECG tracing without any additional visualisation, are shown in Figure \ref{fig:vis-examples}.
+
+As can be seen in Figure \ref{fig-vis-type-interact}, the different
+visualisation types interact with the presence or absence of an
+ST-elevation.
+Similar patterns of performance are observed in the \emph{Shading + Threshold Line} and \emph{Shading + Threshold Line + J-point Marker} conditions; these visualisations appear to have been most helpful when ST-elevation was present.
+The opposite pattern of results was observed in the \emph{J-point Marker + Threshold Line} condition, where performance was best when ST-elevation was absent.
+
+We examine the potential mechanisms behind the \emph{Shading + Threshold Line} and \emph{Shading + Threshold Line + J-point Marker} conditions together given the similarity in participants' performance.
+In the training for both of these conditions, participants were instructed to classify the stimulus as ``ST-elevation'' when they could see any shading of the ST-segment.
+When the stimulus in question is not a boundary case, the \emph{Shading} represents a heuristic relying on pre-attentive processing \cite{northdruft_1993} to cognitively support \cite{tory_2004} participants by removing the need to find and examine the J-point.
+The fact that the inclusion of the \emph{J-point Marker} in addition to \emph{Shading} benefits participants' performance, may be explained by the visual anchor provided by the \emph{J-point Marker} both for (1) boundary cases where ST-elevation is present but for which almost no shading is visible; and (2) for cases where ST-elevation is absent and thus, only the threshold line would be visible, with no shading.
+
+While \emph{Shading} is helpful when ST-elevation is present, the results suggest that the \emph{J-point Marker + Threshold Line} alone is more helpful when ST-elevation is absent.
+As can be seen in Figure \ref{fig-vis-type-interact}, participants' log odds of success on the task was highest in the ST-elevation absent, \emph{J-point Marker + Threshold Line} condition.
+In this condition, participants were told that the green circle marked the J-point.
+While not providing as much cognitive support as the \emph{Shading}, the J-point marker effectively removes the need for participants to manually locate the J-point.
+Removing this requirement may afford participants more cognitive resources for determining whether or not the J-point is elevated above the threshold line.
+The exact mechanism behind why the \emph{J-point marker + Threshold Line} works so well for ST-elevation absent conditions is unclear, considering the visualisations presented are in fact the same as in the \emph{Shading + Threshold Line + J-point Marker} conditions (since there is no shading).
+Proximity of the J-point marker to the threshold line may play a role in classification accuracy.
+This distance may be larger when ST-elevation is absent, making the visual cue provided by the J-point marker more pronounced, and thus easier to identify.
+However, participants from the \emph{Shading + Threshold Line + J-point Marker} may rely more heavily on visual cues provided by the shading than on the concurrently available J-point marker.
+Prior exposure to shading may prime participants to perceive (i.e. hallucinate) shaded regions in borderline cases.
+
+Despite showing identical stimuli for the visualisation absent conditions across the three participation groups, there is a variation in correctness (see Figure \ref{fig-summary-vis}), suggesting potential cognitive artefacts due to exposures to the different visualisation types \cite{pugh_2018} whose explanation will require future work.
 
 # Conclusion
+
+Our study demonstrates that rule‑based, explainable ECG visualisations can significantly improve the identification of ST‑segment elevation across lay users and provide useful information for clinicians to support their decision-making. In Part I, practising clinicians confirmed the clinical relevance of these findings: they consistently valued the transparency of rule‑based cues, the reliability of explicit J‑point marking, and the potential for these visualisations to complement, rather than replace, existing CIE systems. In Part II, lay participants -- after only brief training -- achieved markedly higher accuracy and faster response times when visualisations were present, showing that intuitive, guideline‑aligned cues can effectively support ECG interpretation even among non‑experts.
+
+Looking ahead, future work should evaluate these visualisations within real clinical workflows and full 12‑lead contexts, assessing their impact in emergency departments, pre‑hospital care, and EMS decision‑making. Integrating these visual cues into automated ECG interpretation systems may also enhance explainability and clinicians' trust, particularly as ECG‑enabled wearables and AI‑driven monitoring become more widespread. Further exploration using eye‑tracking, psychophysics, and studies with patient‑generated ECG data will help clarify the mechanisms behind visual cue effectiveness and guide refinement of interface designs.
+
+To conclude, our findings indicate that simple, transparent, rule‑based visualisations can reduce interpretive variability, improve diagnostic confidence, and support both learning and real‑world decision‑making. By directly addressing known challenges such as J‑point localisation and the explainability gap in automated ECG interpretation, these visual aids offer a promising avenue towards safer, more interpretable, and more accessible ECG diagnostics.
+
+
 
 # Acknowledgements {.unnumbered}
 
