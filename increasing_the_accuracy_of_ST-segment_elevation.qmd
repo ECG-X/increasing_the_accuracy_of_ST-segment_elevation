@@ -340,7 +340,7 @@ make_emm_table <- function(model, predictor) {
 ```
 
 
-# Introduction
+# Introduction {#sec-introduction}
 
 Cardiovascular diseases remain the leading cause of death worldwide, accounting for an estimated 19.8 million deaths in 2022.
 Approximately 85% of these were due to heart attack and stroke \cite{who}.
@@ -368,7 +368,7 @@ Building on this, along with our recent work demonstrating that explainable visu
 Our visualisations highlight areas that are of interest to clinicians, with the aim of supporting efficient, accurate ECG interpretation.
 To assess the effectiveness of our visualisations, we adopted a mixed-methods approach: a clinical user validation -- presented in Part I -- and a reproducible single-experiment study with lay participants -- presented in Part II. We selected lay people to evaluate the usefulness of our visualisation under the assumption that if individuals with no prior experience in interpreting ECGs can accurately identify ST-elevation, it provides strong evidence for the comprehensibility and the intuitiveness of our explainable designs.
 
-## Hypotheses
+## Hypotheses {#sec-hypotheses}
 
 Our Part II study tested three visualisations based on clinical rules with the aim
 of scaffolding understanding and interpretation of ST-elevations. Owing
@@ -573,13 +573,13 @@ Each recording is represented by a CSV file containing data, including all of th
 An ST-segment lasts approximately 80~ms to 120~ms \cite{sattar2023}, and since the ECG datasets have varying durations, we configured our pipeline to sample the first 30~s from each recorded signal.
 Each signal therefore has approximately 39 potential ST-segments (based on the mean real-world heart rate of 79.1 beats per minute (bpm) \cite{Avram2019}) available for analysis and can be visually annotated with our visualisations.
 
-### Data Preprocessing
+### Data Preprocessing {#sec-data-preprocess}
 
-A flowchart depicting our full pipeline is shown in Figure \ref{fig:vis-pipeline}. We utilised SciPy \cite{2020SciPy-NMeth} and NeuroKit2 \cite{Makowski2021neurokit}, two openly available Python libraries, for signal preprocessing tasks.
+A flowchart depicting our full pipeline is shown in Figure \ref{fig-vis-pipeline}. We utilised SciPy \cite{2020SciPy-NMeth} and NeuroKit2 \cite{Makowski2021neurokit}, two openly available Python libraries, for signal preprocessing tasks.
 The first two steps of preprocessing aimed to reduce noise while preserving the signal morphology.
 
 ```{r}
-#| label: fig:vis-pipeline
+#| label: fig-vis-pipeline
 #| include: true
 #| fig-cap: "Computational pipeline for ST-segment features detection and visualisation: Data preprocessing (in yellow) includes applying a high pass and a bandpass filter. Some processing is carried out in segments, each with a duration of the segment time window defined in configuration. Steps completed utilising NeuroKit2 functions (circled in brown), identify features relevant to ST-elevations (in blue). The four distinctive visualisations (in green) are plotted on a red grid background with the ECG signal (in pink)."
 
@@ -623,7 +623,7 @@ Implementation via NeuroKit2 includes the Martinez et al. method \cite{martinez2
 R-peaks are typically the most prominent feature in an ECG tracing and can be used to compute the average heart rate.
 We achieved this by taking the mean of the interval between two consecutive R-peaks ($\overline{RR}$) using data from lead III.
 
-### Novel Correction of ST-segment Calculations
+### Novel Correction of ST-segment Calculations 
 
 As previously highlighted, accurately defining the J-point can be clinically challenging \cite{carley_2002}, and there is long-standing disagreement and varying practice in defining the ST-segment and the diagnostic window based on it to detect ST-segment elevation \cite{man_2017}. A fixed time cut-off, such as 40~ms, 60~ms, or 80~ms after the J-point, have been widely used, yet their physiological validity is contested and diagnostic performance is highly sensitive to chosen offsets \cite{lindow_2020}. As ventricular repolarisation shortens at high heart rates and lengthens at low heart rates through rate-dependent action potential adaptation, a fixed delay from the J-point does not consistently capture the same repolarisation phase across recordings. As a result, a fixed cut-off to define the  diagnostically-important part of the ST-segment may introduce heart-rate--dependent distortions in both visual and algorithmic analysis.
 
@@ -639,7 +639,7 @@ Although $STc$ uses a Bazett‑type correction where 60~bpm serves as the mathem
 
 By combining morphology‑based delineation with heart‑rate correction, $STc$ provides a robust alternative to conventional post--J‑point offsets and may yield a more reliable and interpretable framework for visualising and analysing ST‑segment behaviour in both clinical and computational applications.
 
-### Visualisations Design and Algorithm
+### Visualisations Design and Algorithm {#sec-design-vis}
 
 Based on the features detected by the pipeline, visualisations were applied (i.e. visually annotated) on top of the filtered ECG signal.
 The visualisations were designed to increase the salience of the visual features relevant to ST-segment elevation analysis and the subtasks outlined in Section \ref{sec-method-online-exp}.
@@ -697,7 +697,7 @@ The guide introduced participants to our visualisations, explained how they were
 
 All materials, such as the Ethics Outcomes Letters, validation study guide, and transcripts are openly accessible and were deposited on Figshare with consent from participants\footnote{\url{https://doi.org/10.48420/31042243}}.
 
-## Part II: Online Experiment with Lay Participants
+## Part II: Online Experiment with Lay Participants {#sec-method-online-exp}
 
 Our goal was to design visualisations based on clinical rules to enable
 intuitive visual identification of ST-elevation -- as commonly prevalent in STEMI
