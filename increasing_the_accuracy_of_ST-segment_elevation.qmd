@@ -386,7 +386,7 @@ lead to the following hypotheses, both of which were pre-registered with the Ope
   H2: Participants will make binary classification decisions significantly more quickly when additional visualisations are present compared to when they are not.
 \end{itemize}
 
-# Related Work
+# Related Work {#sec-related-work}
 
 Myocardial Infarction (MI) refers to a partial or complete blockage of the blood flow to a
 portion of the heart muscle \cite{ojha_2023}. Such a blockage deprives
@@ -403,17 +403,17 @@ ST-segment elevation Myocardial Infarction (STEMI) is diagnostically defined as 
 
 \begin{quotation}
   The presence of an ST-segment that is elevated above the baseline at the 
-  J-point by at least 0.1~millivolts (mV) in any two contiguous leads except V2 and V3.
-  In leads V2 and V3, this elevation must be at least 0.2~mV in males aged 40 years or older,
-  at least 0.25~mV in males aged under 40 years, and at least 0.15~mV in females.
+  J-point by at least 0.1 millivolts (mV) in any two contiguous leads except V2 and V3.
+  In leads V2 and V3, this elevation must be at least 0.2 mV in males aged 40 years or older,
+  at least 0.25 mV in males aged under 40 years, and at least 0.15 mV in females.
 \end{quotation}
 
-## ST-Elevation Myocardial Infarction
+## ST-Elevation Myocardial Infarction {#sec-stemi}
 
 ```{r}
 #| label: fig-ecg-signal-explainer
 #| include: true
-#| fig-cap: "Phases of the ECG: Using real ECG data from the V4 chest lead to illustrate the P-wave, the QRS complex, the ST-segment,the T-wave, and the J-point. In the experiment, participants were instructed to classify ECG signals such as these as `ST-elevation' or `No ST-elevation'. This particular signal does not show ST-elevation. Each small red square represents 40~milliseconds (ms) horizontally and 0.1~millivolts (mV) vertically. Each large red square represents 200~milliseconds horizontally and 0.5~millivolts vertically."
+#| fig-cap: "Phases of the ECG: Using real ECG data from the V4 chest lead to illustrate the P-wave, the QRS complex, the ST-segment,the T-wave, and the J-point. In the experiment, participants were instructed to classify ECG signals such as these as `ST-elevation' or `No ST-elevation'. This particular signal does not show ST-elevation. Each small red square represents 40 milliseconds (ms) horizontally and 0.1 millivolts (mV) vertically. Each large red square represents 200 milliseconds horizontally and 0.5 millivolts vertically."
 
 knitr::include_graphics(path = "graphics/ecg-example.pdf", dpi = NA)
 ```
@@ -434,12 +434,12 @@ prognosis following a STEMI event \cite{ibanez_2018}. Any intervention
 that may improve clinicians' (and potentially patients') ability to
 quickly recognise STEMI is therefore worthy of study.
 
-## ECG Interpretation
+## ECG Interpretation {#sec-interpretation}
 
 ECG interpretation is a complex problem, even for clinicians with years
 of training \cite{salerno_2003, cook_2020, rafie_2021}. In a clinical
 context, the heart activity taken from all 12 ECG leads is
-interpreted. Even recordings as short as 10~seconds (s) of
+interpreted. Even recordings as short as 10 seconds (s) of
 heart activity information become complex data when taking into
 account 12 different signals, and clinicians are taught to make
 diagnoses based on the ensemble of information available \cite{hampton_2024}.
@@ -464,7 +464,7 @@ improves accuracy on ECG interpretation paradigms \cite{mccabe_2013, veronese_20
 interpreting ECG is difficult, even for those whose speciality is
 cardiology and those with many years of training and experience.
 
-## ECG Visualisation
+## ECG Visualisation {#sec-ecg-viz}
 
 The way in which ECG data are presented
 to clinicians has changed little since the invention of the technique
@@ -500,7 +500,7 @@ The visualisation techniques presented in this work are designed to
 increase the salience of relevant visualisation features, as opposed to
 simply adding information.
 
-## Using Clinical Rules to Guide Visualisation Design
+## Using Clinical Rules to Guide Visualisation Design {#sec-clinical-rules}
 
 Clinical decision rules and protocols can be used to guide the design of
 healthcare data visualisations by translating clinical knowledge into structured
@@ -567,10 +567,10 @@ As our algorithm was intentionally designed to produce novel, foundational, huma
 Raw ECG data were acquired from the clinically-validated PTB Diagnostic ECG Database \cite{ptb}, which is openly available and can be downloaded from PhysioNet.
 Prior to any signal processing, the raw data were converted from WaveForm DataBase (WFDB) format to CSV for ingestion into our \textit{ST-segment feature detection and visualisation} pipeline.
 From the 549 available datasets downloaded and converted to CSV, we grouped them into three categories based on the diagnosis (i.e. reason for admission) provided by the database.
-There were 80~ECG recordings classified as \textit{healthy control}, 368 \textit{myocardial infarction}, and the \textit{other} remaining 101 includes other heart conditions (e.g., cardiomyopathy, bundle branch block, etc.) and miscellaneous.
+There were 80 ECG recordings classified as \textit{healthy control}, 368 \textit{myocardial infarction}, and the \textit{other} remaining 101 includes other heart conditions (e.g., cardiomyopathy, bundle branch block, etc.) and miscellaneous.
 We selected data from the \textit{healthy control} and the \textit{myocardial infarction} group as input, as they most likely contain signals without and with ST-elevation, respectively.
 Each recording is represented by a CSV file containing data, including all of the leads provided by the database, from the same recording session.
-An ST-segment lasts approximately 80~ms to 120~ms \cite{sattar2023}, and since the ECG datasets have varying durations, we configured our pipeline to sample the first 30~s from each recorded signal.
+An ST-segment lasts approximately 80 ms to 120 ms \cite{sattar2023}, and since the ECG datasets have varying durations, we configured our pipeline to sample the first 30 s from each recorded signal.
 Each signal therefore has approximately 39 potential ST-segments (based on the mean real-world heart rate of 79.1 beats per minute (bpm) \cite{Avram2019}) available for analysis and can be visually annotated with our visualisations.
 
 ### Data Preprocessing {#sec-data-preprocess}
@@ -589,7 +589,7 @@ knitr::include_graphics(path = "graphics/vis_pipeline.pdf", dpi = NA)
 Artefacts caused by respiration, movement, electrode impedance, and electrical interference \cite{Luo2013} distort ECG signal quality \cite{Zhang2025} and hinder feature detection relevant to ST-segment interpretation and analysis \cite{Lenis2017}.
 To correct baseline wander, we applied a Butterworth \cite{butterworth1930} high pass filter, chosen for its accuracy and computational efficiency in medical applications \cite{Lenis2017}.
 A cut-off frequency at 0.5 Hertz (Hz) \cite{Zhang2025, Kher2019, Kligfield2007} removed low frequency noise and shifted the signal vertically to centre around zero.
-Then, a second Butterworth bandpass filter (0.5~Hz to 50~Hz) was used to reduce high frequency noise due to electrical (e.g., powerline) and myoelectric interferences \cite{Zhang2025, Kher2019, Chatterjee2020}, improving signal clarity.
+Then, a second Butterworth bandpass filter (0.5 Hz to 50 Hz) was used to reduce high frequency noise due to electrical (e.g., powerline) and myoelectric interferences \cite{Zhang2025, Kher2019, Chatterjee2020}, improving signal clarity.
 Deflections from the raw signals are preserved in the filtered signals, which form the basis of the ECG tracings (with and without visualisations) used in the online experiment with lay participants.
 
 Our third step utilised NeuroKit2 to identify and invert any \textit{inverted signals} (an artefact due to electrode placement during the recording session or pathological causes \cite{Rosen2014, Rosen2014a, Glancy2014}).
@@ -602,10 +602,10 @@ The pipeline is built to support the 12 conventional leads routinely used in cli
 The algorithm is also capable of applying the threshold line based on the ST-elevation criteria depending on the age and sex of the patient.
 As our online experiment with lay participants excluded evaluating leads V2 and V3 (see Section \ref{sec-method-online-exp}), the pipeline was configured accordingly.
 
-ECG signals from the PTB Diagnostic ECG database were measured within the range of $\pm 16.384$~mV \cite{ptb}, yet ECG amplitudes are generally below 5~mV \cite{Xie2020}.
-For quality control and to ensure the output ECG images have a consistent height regardless of signal amplitude, we adopted a conservative approach by configuring the pipeline to discard datasets with maximum amplitudes outside $\pm 3$~mV, as well as signals shorter than 30~s.
-Excluding leads V2 and V3, we determined 72.5\% (58 out of 80 recordings) and 64.1\% (236 out of 368 recordings) of the datasets from the \textit{healthy control} and the \textit{myocardial} group, respectively, have maximum amplitudes within $\pm$3~mV.
-In addition, to streamline the remaining steps, we partitioned the 30~s signal by a configurable time segment window (e.g., 5~s) to process.
+ECG signals from the PTB Diagnostic ECG database were measured within the range of $\pm 16.384$ mV \cite{ptb}, yet ECG amplitudes are generally below 5 mV \cite{Xie2020}.
+For quality control and to ensure the output ECG images have a consistent height regardless of signal amplitude, we adopted a conservative approach by configuring the pipeline to discard datasets with maximum amplitudes outside $\pm 3$ mV, as well as signals shorter than 30 s.
+Excluding leads V2 and V3, we determined 72.5\% (58 out of 80 recordings) and 64.1\% (236 out of 368 recordings) of the datasets from the \textit{healthy control} and the \textit{myocardial} group, respectively, have maximum amplitudes within $\pm$3 mV.
+In addition, to streamline the remaining steps, we partitioned the 30 s signal by a configurable time segment window (e.g., 5 s) to process.
 For the final output, the number of ECG images produced per signal for a lead is dependent on the specified time segment window and the total duration of a signal sampled for input.
 
 ### Feature Detection
@@ -625,7 +625,7 @@ We achieved this by taking the mean of the interval between two consecutive R-pe
 
 ### Novel Correction of ST-segment Calculations 
 
-As previously highlighted, accurately defining the J-point can be clinically challenging \cite{carley_2002}, and there is long-standing disagreement and varying practice in defining the ST-segment and the diagnostic window based on it to detect ST-segment elevation \cite{man_2017}. A fixed time cut-off, such as 40~ms, 60~ms, or 80~ms after the J-point, have been widely used, yet their physiological validity is contested and diagnostic performance is highly sensitive to chosen offsets \cite{lindow_2020}. As ventricular repolarisation shortens at high heart rates and lengthens at low heart rates through rate-dependent action potential adaptation, a fixed delay from the J-point does not consistently capture the same repolarisation phase across recordings. As a result, a fixed cut-off to define the  diagnostically-important part of the ST-segment may introduce heart-rate--dependent distortions in both visual and algorithmic analysis.
+As previously highlighted, accurately defining the J-point can be clinically challenging \cite{carley_2002}, and there is long-standing disagreement and varying practice in defining the ST-segment and the diagnostic window based on it to detect ST-segment elevation \cite{man_2017}. A fixed time cut-off, such as 40 ms, 60 ms, or 80 ms after the J-point, have been widely used, yet their physiological validity is contested and diagnostic performance is highly sensitive to chosen offsets \cite{lindow_2020}. As ventricular repolarisation shortens at high heart rates and lengthens at low heart rates through rate-dependent action potential adaptation, a fixed delay from the J-point does not consistently capture the same repolarisation phase across recordings. As a result, a fixed cut-off to define the  diagnostically-important part of the ST-segment may introduce heart-rate--dependent distortions in both visual and algorithmic analysis.
 
 Given these limitations and driven by the need to define a diagnostic window of the ST-segment for one of our visualisation types introduced in Section \ref{sec-design-vis}, we developed a novel algorithm to calculate the ST-segment, $STc$ (ST corrected), inspired by Bazett's formula to correct calculation of the QT interval \cite{bazett}, which is calculated as:
 %
@@ -635,7 +635,7 @@ STc = \frac{ST}{\sqrt{\overline{RR}}},
 %
 where $STc$ is in milliseconds, $ST$ is the duration between the detected J-point and the T-wave onset (ST-segment) in milliseconds, and the average R-peak to R-peak interval $\overline{RR}$ in seconds.
 
-Although $STc$ uses a Bazett‑type correction where 60~bpm serves as the mathematical reference point ($RR = 1$~s), the algorithm does not assume that all patients should physiologically behave as if they were at 60~bpm. Rather, 60~bpm is simply the calibration point that removes the heart‑rate--dependent distortion. $STc$ therefore creates a heart‑rate--normalised window that aligns with the same repolarisation phase at any heart rate, without altering the ECG signal or imposing a specific physiological state. The resulting $STc$ provides a cycle-length--normalised, physiologically coherent window that is comparable across beats, patients, and varying heart rates. Unlike fixed cut-offs, which risk sampling different electrophysiological phases depending on heart rates, $STc$ ensures that the analysis window stays consistent. In practice, $STc$ defines the duration of the ST-segment, determining its endpoint relative to the J-point. The resulting heart-rate--normalised diagnostic window is overlaid in the time domain as a visualisation on the filtered signal, whose temporal structure remains heart-rate--dependent.
+Although $STc$ uses a Bazett‑type correction where 60 bpm serves as the mathematical reference point ($RR = 1$ s), the algorithm does not assume that all patients should physiologically behave as if they were at 60 bpm. Rather, 60 bpm is simply the calibration point that removes the heart‑rate--dependent distortion. $STc$ therefore creates a heart‑rate--normalised window that aligns with the same repolarisation phase at any heart rate, without altering the ECG signal or imposing a specific physiological state. The resulting $STc$ provides a cycle-length--normalised, physiologically coherent window that is comparable across beats, patients, and varying heart rates. Unlike fixed cut-offs, which risk sampling different electrophysiological phases depending on heart rates, $STc$ ensures that the analysis window stays consistent. In practice, $STc$ defines the duration of the ST-segment, determining its endpoint relative to the J-point. The resulting heart-rate--normalised diagnostic window is overlaid in the time domain as a visualisation on the filtered signal, whose temporal structure remains heart-rate--dependent.
 
 By combining morphology‑based delineation with heart‑rate correction, $STc$ provides a robust alternative to conventional post--J‑point offsets and may yield a more reliable and interpretable framework for visualising and analysing ST‑segment behaviour in both clinical and computational applications.
 
@@ -647,7 +647,7 @@ An example of each type of visualisation is shown in Figure \ref{fig:vis-example
 To reduce the cognitive load of ECG interpretation tasks, we applied strategies taken from Cognitive Load Theory (CLT) \cite{paas_2020}.
 After iterative cycles of discussion regarding visualising clinical rules for ST-elevation during the Responsible Research and Innovation (RRI) workshops, we decided upon a final set of three visualisation types presented in this study.
 
-All three visualisation types feature a dashed threshold line at 0.1~mV above the baseline. 
+All three visualisation types feature a dashed threshold line at 0.1 mV above the baseline. 
 The universal inclusion of this line was due to reports that very low levels of ST-elevation may be responsible for disagreements between clinicians regarding the presence or absence of ST-elevation on an ECG \cite{erling_2004}.
 However, a threshold-line--only design, or one combined with the baseline, was ruled out during the RRI workshops as they were shown to be ineffective, leading to interpretative uncertainty.
 In addition to the threshold line, we took two different approaches to address another major source of potential disagreement amongst clinicians regarding ST-elevation: the location of the J-point \cite{carley_2002}. 
@@ -688,9 +688,12 @@ Building upon our RRI and stakeholder engagement work conducted throughout the E
 We aimed to recruit at least five clinicians, a common threshold for formative medical device and software evaluation \cite{FDA2016HumanFactors}, and our sample size followed established human-factors principles where small expert samples are appropriate for formative, low risk evaluations \cite{IEC}. All clinicians were based in the UK at the time of evaluation. These specialties were selected after a series of RRI workshops, which identified these groups as regularly interpreting ECGs. 
 Based on the Ethics Decision Tool at the University of Manchester and the NHS Health Research Authority Ethics Toolkit \cite{nhs_ethics}, the study was exempt from ethical review as we solely consulted with professionals (i) strictly within their professional remit, and (ii) did not collect any personally identifiable information apart from those on the exempt list, i.e. names, professional roles, signed consent, and audio recordings.
 
-The evaluations were undertaken between November 2025 and January 2026 via the video conferencing software Microsoft Teams \cite{ms-teams} (video function disabled). Participants were included on the basis that they are currently employed clinicians with ``experiential relevance''~\cite[p. 124]{rudestam_surviving_2015} in terms of ECG usage and clinical knowledge. 
+The evaluations were undertaken between November 2025 and January 2026 via the
+video conferencing software Microsoft Teams \cite{ms-teams} (video function disabled).
+Participants were included on the basis that they are currently employed clinicians
+with ``experiential relevance''\cite[p. 124]{rudestam_surviving_2015} in terms of ECG usage and clinical knowledge. 
 As we aimed to generate data that establishes a representational account of participants’ professional roles, we refrain from including the names of clinicians. 
-All participants received a Participant Information Sheet (PIS) prior to the interview and provided informed consent. Participants were further given the option of withdrawing data up to 14~days after the date of participation, and received a shopping voucher worth Fifteen Pounds Sterling (GBP or £) as a token of appreciation for their time investment.
+All participants received a Participant Information Sheet (PIS) prior to the interview and provided informed consent. Participants were further given the option of withdrawing data up to 14 days after the date of participation, and received a shopping voucher worth Fifteen Pounds Sterling (GBP or £) as a token of appreciation for their time investment.
 
 The evaluations followed a semi-structured guide \cite{lindlof_qualitative_2017} based on generative questions \cite{rubin_qualitative_2005} to encourage extensive replies in an open format. The guide was developed during RRI workshops and is grounded in practice-based approaches of Human-Computer Interaction (HCI) to enable investigation of participants' lived experiences with technologies \cite{kuutti_turn_2014}. 
 The guide introduced participants to our visualisations, explained how they were designed, and detailed that they are explainable based on clinical rules. We then asked about their clinical correctness, usefulness, and clinicians' preferences, followed by considerations of how they would use them in their clinical practice.
@@ -702,10 +705,10 @@ All materials, such as the Ethics Outcomes Letters, validation study guide, and 
 Our goal was to design visualisations based on clinical rules to enable
 intuitive visual identification of ST-elevation -- as commonly prevalent in STEMI
 -- on ECGs. To recapitulate, that is an elevation at the J-point of
-at least 0.1~mV in any two contiguous leads except V2 and V3. In leads
-V2 and V3, this elevation must be at least 0.2~mV in males aged 40~years or
-older, at least 0.25~mV in males aged under 40~years, and at least
-0.15~mV in females. Motivated by previous work \cite{alahmadi_2023}, we conducted rounds of RRI workshops with lay people, clinicians regularly interpreting ECGs, and HCI experts to draft the following research pathway.
+at least 0.1 mV in any two contiguous leads except V2 and V3. In leads
+V2 and V3, this elevation must be at least 0.2 mV in males aged 40 years or
+older, at least 0.25 mV in males aged under 40 years, and at least
+0.15 mV in females. Motivated by previous work \cite{alahmadi_2023}, we conducted rounds of RRI workshops with lay people, clinicians regularly interpreting ECGs, and HCI experts to draft the following research pathway.
 
 Since we specifically recruited lay participants who were unfamiliar with ECGs, simply asking participants to spot a STEMI on an ECG, whether with or without the added visualisation, would be a task with a high intrinsic cognitive load. Instead, we segmented this task into smaller, more easily achievable steps. Notably, we:
 
@@ -714,7 +717,7 @@ Since we specifically recruited lay participants who were unfamiliar with ECGs, 
 \item
   Solely focused on ST-elevation without introducing the concept of STEMI.
 \item
-  Only used leads where the 0.1~mV rule applies.
+  Only used leads where the 0.1 mV rule applies.
 \item
   Only showed single-heartbeat single-lead images.
 \item
@@ -725,7 +728,7 @@ Since we specifically recruited lay participants who were unfamiliar with ECGs, 
 Participants were trained exclusively on these principles, and were not introduced to concepts or rules unnecessary for the completion of the classification task. 
 The task that participants performed can essentially be broken down into a pair of subtasks: 1) locate the J-point, and 2) check for the ST-elevation, \emph{in purely descriptive terms based on the ECG images shown}.
 
-### Crowdsourcing
+### Crowdsourcing {#sec-crowdsourcing}
 
 There is precedent for work investigating ECG interpretation to feature
 lay participants \cite{alahmadi_2020}, and for crowdsourcing to be used
@@ -743,7 +746,7 @@ have previously successfully completed at least 100 Prolific studies,
 and were required to have been accepted on at least 95\% of their
 previous submissions.
 
-### Open Research
+### Open Research {#sec-open-research}
 
 This project was conducted according to the principles of open and
 reproducible research \cite{ayris_2018}. Hypotheses and analysis plans
@@ -754,7 +757,7 @@ in which the paper was written. This facilitates full replication of
 figures, analyses, and the paper itself. 
 The algorithm to create ECG images with visualisations is also accessible (see Section \ref{sec-vis-alg-dev}).
 
-### Modelling
+### Modelling {#sec-modelling}
 
 Our primary outcome measure -- participants' performance on the
 ST-elevation classification task -- is binary. We hence built Generalised
@@ -767,7 +770,7 @@ identifies the most complex model that successfully converges. The
 \texttt{lme4} package (version 1.1-37 \cite{bates_2015}) supplies the
 \texttt{glmer()} function to \texttt{buildmer} that constructs the GLMM.
 
-### Stimuli
+### Stimuli {#sec-stimuli}
 
 Our stimuli were designed based on the visualisation pipeline outlined in Section \ref{sec-vis-alg-dev} and the core principles of our experiment described in Section \ref{sec-method-online-exp}. 
 The stimuli used in the experiment consisted of static ECG tracings representing single heartbeats from any of the included leads (I, II, III, aVR, aVL, aVF, V1, V4, V5, and V6), displayed either with or without visualisations (see Figure \ref{fig:vis-examples}). ECG segments were sampled to illustrate the presence or absence of ST-elevation.
@@ -781,13 +784,13 @@ Finally, visual parameters such as scaling, grid layout, and threshold indicator
 
 These assumptions reflect the controlled nature of the experiment to test the usefulness of visualisation -- to facilitate the interpretation of ST-segment elevation -- and to support systematic comparison of our conditions, rather than to replicate the complexity of real-world ECG interpretation.
 
-### Procedure
+### Procedure {#sec-procedure}
 
-The experiments were built using PsychoPy \cite{peirce_2019} and hosted on~\url{Pavlovia.org}. 
+The experiments were built using PsychoPy \cite{peirce_2019} and hosted on \url{Pavlovia.org}. 
 Participation was permitted using laptop or desktop computers only. 
 A flowchart
 depicting the experimental procedure is presented in
-Figure \ref{fig:exp-flowchart}.
+Figure \ref{fig-exp-flowchart}.
 Participants were first shown the PIS and were asked to provide consent via key presses in response to consent statements. 
 They provided their age in a free text box, followed by their gender identity. 
 Participants were then taken to a 4-minute training module. 
@@ -803,7 +806,7 @@ incorrect. All four practice trials featured the visualisation, with two
 displaying ST-elevation present and two displaying ST-elevation absent.
 
 ```{r}
-#| label: fig:exp-flowchart
+#| label: fig-exp-flowchart
 #| include: true
 #| fig-cap: "Experimental Flowchart: Flowchart depicting the stages of the experimental procedure."
 
@@ -837,7 +840,7 @@ We sought to recruit ${n = 100}$ participants for each of the three between-part
 English fluency, normal or corrected-to-normal vision, and having not taken part in any of the RRI workshops described in Section \ref{sec-method-online-exp} were required for participation. 
 Participants were also instructed not to take part if they had prior medical knowledge or experience interpreting ECGs.
 
-### Experimental Design
+### Experimental Design {#sec-design}
 
 We employed a mixed design. Within participants, all saw the same 58 ECG tracings without visualisations (29 with ST-elevation, 29 without).
 The between-participants factor was the type of ECG visualisation utilised.
@@ -1437,9 +1440,9 @@ With only 4 minutes of basic training, participants were able to perform the tas
 ### Visualisation Type and Mechanism of Action {#sec-vis-type-mech}
 
 Each visualisation type was designed based on the clinical rules outlined in Section \ref{sec-stemi}.
-Ignoring the contiguity rule, the rule for classifying ST-elevation in the leads chosen is 0.1~mV of elevation at the J-point.
+Ignoring the contiguity rule, the rule for classifying ST-elevation in the leads chosen is 0.1 mV of elevation at the J-point.
 The visualisations were designed to support participants' completion of the task: finding the J-point and checking the level of elevation. 
-The dashed threshold line at 0.1~mV was included in the visualisations to address borderline issues where low levels of ST-elevation are difficult to identify \cite{erling_2004}.
+The dashed threshold line at 0.1 mV was included in the visualisations to address borderline issues where low levels of ST-elevation are difficult to identify \cite{erling_2004}.
 The J-point marker supported participants in locating the J-point, and the shading reduced the task load by removing the obligation to manually locate the J-point.
 Examples of all visualisation types, including an ECG tracing without any additional visualisation, are shown in Figure \ref{fig:vis-examples}.
 
