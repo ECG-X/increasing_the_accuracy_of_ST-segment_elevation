@@ -398,7 +398,7 @@ on the presence of cardiac bio-markers in the blood concurrent with
 other criteria, including changes in the electrical activity of the
 heart \cite{thygesen_2019} detected using an ECG. In a clinical setting, 10
 electrodes are attached to different parts of the patient's body to
-produce 12 different ``views'' of the heart's electrical activity \cite{hampton_2024}; these are often referred to as \emph{leads}.
+produce 12 different "views" of the heart's electrical activity \cite{hampton_2024}; these are often referred to as \emph{leads}.
 ST-segment elevation Myocardial Infarction (STEMI) is diagnostically defined as \cite{rao_2025, akbar_2024}:
 
 \begin{quotation}
@@ -415,7 +415,7 @@ ST-segment elevation Myocardial Infarction (STEMI) is diagnostically defined as 
 #| include: true
 #| fig-cap: "Phases of the ECG: Using real ECG data from the V4 chest lead to illustrate the P-wave, the QRS complex, the ST-segment,the T-wave, and the J-point. In the experiment, participants were instructed to classify ECG signals such as these as `ST-elevation' or `No ST-elevation'. This particular signal does not show ST-elevation. Each small red square represents 40 milliseconds (ms) horizontally and 0.1 millivolts (mV) vertically. Each large red square represents 200 milliseconds horizontally and 0.5 millivolts vertically."
 
-knitr::include_graphics(path = "graphics/ecg-example.pdf", dpi = NA)
+knitr::include_graphics(path = "graphics/ecg-example.png", dpi = NA)
 ```
 In this context, \emph{contiguous} refers to leads that represent
 adjacent anatomical areas. Figure \ref{fig-ecg-signal-explainer}
@@ -483,7 +483,7 @@ Chest and limb leads have been combined separately into a pair of
 3-dimensional views of the heart's electrical activity by Chiang et al. \cite{chiang_2001} and Heo et al. \cite{heo_2020}; this technique has
 received some approval from clinicians based on polling \cite{chiang_2001}, and has been used successfully in algorithmic
 classification paradigms \cite{heo_2020, fang_2022, bortolan_2023}.
-Kors and van Herpern \cite{kors_2008} and Wagner et al. \cite{wagner_2008} have explored the theoretical use of ``inverted''
+Kors and van Herpern \cite{kors_2008} and Wagner et al. \cite{wagner_2008} have explored the theoretical use of "inverted"
 (mirror image) ECG leads, finding mixed results with regards to 
 their benefit over traditional, 12-lead ECG. Perron et al. \cite{perron_2006}, however, found that including 7 additional inverted leads provided benefits in terms of detecting artificially
 induced arterial blockage. Other visualisation techniques have included
@@ -583,7 +583,7 @@ The first two steps of preprocessing aimed to reduce noise while preserving the 
 #| include: true
 #| fig-cap: "Computational pipeline for ST-segment features detection and visualisation: Data preprocessing (in yellow) includes applying a high pass and a bandpass filter. Some processing is carried out in segments, each with a duration of the segment time window defined in configuration. Steps completed utilising NeuroKit2 functions (circled in brown), identify features relevant to ST-elevations (in blue). The four distinctive visualisations (in green) are plotted on a red grid background with the ECG signal (in pink)."
 
-knitr::include_graphics(path = "graphics/vis_pipeline.pdf", dpi = NA)
+knitr::include_graphics(path = "graphics/vis_pipeline.png", dpi = NA)
 ```
 
 Artefacts caused by respiration, movement, electrode impedance, and electrical interference \cite{Luo2013} distort ECG signal quality \cite{Zhang2025} and hinder feature detection relevant to ST-segment interpretation and analysis \cite{Lenis2017}.
@@ -628,11 +628,11 @@ We achieved this by taking the mean of the interval between two consecutive R-pe
 As previously highlighted, accurately defining the J-point can be clinically challenging \cite{carley_2002}, and there is long-standing disagreement and varying practice in defining the ST-segment and the diagnostic window based on it to detect ST-segment elevation \cite{man_2017}. A fixed time cut-off, such as 40 ms, 60 ms, or 80 ms after the J-point, have been widely used, yet their physiological validity is contested and diagnostic performance is highly sensitive to chosen offsets \cite{lindow_2020}. As ventricular repolarisation shortens at high heart rates and lengthens at low heart rates through rate-dependent action potential adaptation, a fixed delay from the J-point does not consistently capture the same repolarisation phase across recordings. As a result, a fixed cut-off to define the  diagnostically-important part of the ST-segment may introduce heart-rate--dependent distortions in both visual and algorithmic analysis.
 
 Given these limitations and driven by the need to define a diagnostic window of the ST-segment for one of our visualisation types introduced in Section \ref{sec-design-vis}, we developed a novel algorithm to calculate the ST-segment, $STc$ (ST corrected), inspired by Bazett's formula to correct calculation of the QT interval \cite{bazett}, which is calculated as:
-%
+
 \begin{equation*}
 STc = \frac{ST}{\sqrt{\overline{RR}}},
 \end{equation*}
-%
+
 where $STc$ is in milliseconds, $ST$ is the duration between the detected J-point and the T-wave onset (ST-segment) in milliseconds, and the average R-peak to R-peak interval $\overline{RR}$ in seconds.
 
 Although $STc$ uses a Bazett‑type correction where 60 bpm serves as the mathematical reference point ($RR = 1$ s), the algorithm does not assume that all patients should physiologically behave as if they were at 60 bpm. Rather, 60 bpm is simply the calibration point that removes the heart‑rate--dependent distortion. $STc$ therefore creates a heart‑rate--normalised window that aligns with the same repolarisation phase at any heart rate, without altering the ECG signal or imposing a specific physiological state. The resulting $STc$ provides a cycle-length--normalised, physiologically coherent window that is comparable across beats, patients, and varying heart rates. Unlike fixed cut-offs, which risk sampling different electrophysiological phases depending on heart rates, $STc$ ensures that the analysis window stays consistent. In practice, $STc$ defines the duration of the ST-segment, determining its endpoint relative to the J-point. The resulting heart-rate--normalised diagnostic window is overlaid in the time domain as a visualisation on the filtered signal, whose temporal structure remains heart-rate--dependent.
@@ -691,7 +691,7 @@ Based on the Ethics Decision Tool at the University of Manchester and the NHS He
 The evaluations were undertaken between November 2025 and January 2026 via the
 video conferencing software Microsoft Teams \cite{ms-teams} (video function disabled).
 Participants were included on the basis that they are currently employed clinicians
-with ``experiential relevance''\cite[p. 124]{rudestam_surviving_2015} in terms of ECG usage and clinical knowledge. 
+with "experiential relevance" \cite[p. 124]{rudestam_surviving_2015} in terms of ECG usage and clinical knowledge. 
 As we aimed to generate data that establishes a representational account of participants’ professional roles, we refrain from including the names of clinicians. 
 All participants received a Participant Information Sheet (PIS) prior to the interview and provided informed consent. Participants were further given the option of withdrawing data up to 14 days after the date of participation, and received a shopping voucher worth Fifteen Pounds Sterling (GBP or £) as a token of appreciation for their time investment.
 
@@ -723,7 +723,7 @@ Since we specifically recruited lay participants who were unfamiliar with ECGs, 
 \item
   Removed the necessity to understand the contiguity rule and examine
   multiple leads.
-\end{enumerate}%
+\end{enumerate}
 
 Participants were trained exclusively on these principles, and were not introduced to concepts or rules unnecessary for the completion of the classification task. 
 The task that participants performed can essentially be broken down into a pair of subtasks: 1) locate the J-point, and 2) check for the ST-elevation, \emph{in purely descriptive terms based on the ECG images shown}.
@@ -810,19 +810,19 @@ displaying ST-elevation present and two displaying ST-elevation absent.
 #| include: true
 #| fig-cap: "Experimental Flowchart: Flowchart depicting the stages of the experimental procedure."
 
-knitr::include_graphics(path = "graphics/ECG_exp_flowchart.pdf", dpi = NA)
+knitr::include_graphics(path = "graphics/ECG_exp_flowchart.png", dpi = NA)
 ```
 
 Prior to beginning the experimental trials, participants were reminded
-to press the ``ST-Elevation'' button if they believed the ECG showed
-ST-elevation, and to press the ``No ST-Elevation'' button if they did
+to press the "ST-Elevation" button if they believed the ECG showed
+ST-elevation, and to press the "No ST-Elevation" button if they did
 not believe the ECG showed ST-elevation. They were warned that the
 positions of the buttons would change throughout the experiment.
 Participants then worked through a series of 124 trials. Each trial was
-preceded by text that either read ``Please look at the
-following ECG and decide if ST-elevation is present.'' (${n = 116}$,
-black text, experimental trials) or ``Please IGNORE the following ECG
-and click on the centre of the visualisation.'' (${n = 8}$, red text,
+preceded by text that either read "Please look at the
+following ECG and decide if ST-elevation is present." ($n = 116$,
+black text, experimental trials) or "Please IGNORE the following ECG
+and click on the centre of the visualisation." ($n = 8$, red text,
 attention check trials). There was no time limit per trial. An example of an
 experimental trial can be seen in Figure \ref{fig-example-trial}.
 Participants who successfully completed the experiment were paid pro rata through Prolific at a rate of £6 per hour.
@@ -830,7 +830,7 @@ Participants who successfully completed the experiment were paid pro rata throug
 ```{r}
 #| label: fig-example-trial
 #| include: true
-#| fig-cap: "Example Experimental Trial: example trial in the \textit{Shading} + \textit{Threshold Line} condition. This ECG visualisation does show ST-elevation."
+#| fig-cap: "Example Experimental Trial: example trial in the \\textit{Shading} + \\textit{Threshold Line} condition. This ECG visualisation does show ST-elevation."
 
 knitr::include_graphics(path = "graphics/example_trial.png", dpi = NA)
 ```
@@ -885,9 +885,9 @@ kbl(df,
     full_width = FALSE,
     position = "center"
   ) |>
-  column_spec(1, width = "4cm") |>
-  column_spec(2, width = "3cm") |>
-  column_spec(3, width = "3cm") |>
+  column_spec(1, width = "6cm") |>
+  column_spec(2, width = "4cm") |>
+  column_spec(3, width = "4cm") |>
 footnote(
     general = sprintf("Anaesthesia (An); Critical Care (CC); Emergency Medicine (EM); Cardio (Cardiology). A comprehensive list outlining UK medical doctor titles and training stages can be found in \\\\cite{bma_training}."),
     general_title = "Notes:",
@@ -901,23 +901,23 @@ footnote(
 
 All clinicians consistently identified the green circle marking the J-point as the most effective and reliable cue for detecting ST-elevation. Its distinct colour and constant presence in both elevated and non-elevated ST-segments were seen as highly beneficial, particularly in complex or artefact-prone recordings, making it easy to spot even when the baseline was noisy. The green circle's reliability was further emphasised, with clinicians noting that its continuous display -- in visualisations using the J-point marker -- provided reassurance that the visualisation algorithm was functioning as intended. The threshold (dashed) line was also widely valued, as it provided a clear, guideline-based reference for determining whether the J-point was elevated.
 
-Shading to indicate ST-elevation was recognised for its instant visual cue and clarity, making it immediately obvious when elevation was present. However, several clinicians expressed concern that shading could obscure important waveform details, especially in ECGs with significant electrical interference or movement artefacts. One participant noted that ``the black actually takes away from highlighting'' (P2), with another commenting that combining shading with the green circle could be ``the best and the worst of both'' (P4), offering clarity but also introducing potential visual clutter. Interestingly, concerns about visual saliency were balanced by perspectives emphasising the value of over‑sensitivity: P6 argued that visualisations should err towards false positives, as early over‑identification was clinically safer than missing subtle pathology, particularly for users who interpret ECGs less frequently or in high‑pressure settings. From this standpoint, even visually prominent cues -- such as shading or the full combined visualisations -- were seen not as drawbacks but as safety features that could prompt timely attention to a potentially abnormal morphology. This variability in perceiving the most salient cue was further highlighted by P6, who emphasised that the combined visualisation -- including the threshold line, J‑point marker, and shading -- was the most informative from a cardiology perspective, as it offered an immediate indication of abnormal ST‑segment morphology while reducing the cognitive effort otherwise required to manually assess elevation. Many clinicians nonetheless suggested that the shading should be optional or toggleable, allowing users to adapt the interface to their clinical needs and preferences.
+Shading to indicate ST-elevation was recognised for its instant visual cue and clarity, making it immediately obvious when elevation was present. However, several clinicians expressed concern that shading could obscure important waveform details, especially in ECGs with significant electrical interference or movement artefacts. One participant noted that "the black actually takes away from highlighting" (P2), with another commenting that combining shading with the green circle could be "the best and the worst of both" (P4), offering clarity but also introducing potential visual clutter. Interestingly, concerns about visual saliency were balanced by perspectives emphasising the value of over‑sensitivity: P6 argued that visualisations should err towards false positives, as early over‑identification was clinically safer than missing subtle pathology, particularly for users who interpret ECGs less frequently or in high‑pressure settings. From this standpoint, even visually prominent cues -- such as shading or the full combined visualisations -- were seen not as drawbacks but as safety features that could prompt timely attention to a potentially abnormal morphology. This variability in perceiving the most salient cue was further highlighted by P6, who emphasised that the combined visualisation -- including the threshold line, J‑point marker, and shading -- was the most informative from a cardiology perspective, as it offered an immediate indication of abnormal ST‑segment morphology while reducing the cognitive effort otherwise required to manually assess elevation. Many clinicians nonetheless suggested that the shading should be optional or toggleable, allowing users to adapt the interface to their clinical needs and preferences.
 
 ### Trust in Guideline-Based Visuals
 
-There was strong consensus that visualisations grounded in established clinical guidelines, such as those from the American Heart Association (AHA) or European Society of Cardiology (ESC), fostered greater trust and transparency. Clinicians appreciated that these rule-based tools could be easily referenced and updated in line with evolving standards. P1 stated that ``international guidelines always back you up'', suggesting confidence in the system's recommendations. The ability to trace the logic of the visualisations back to a specific guideline was seen as particularly valuable for maintaining clinical assurance and regulatory compliance (P4).
+There was strong consensus that visualisations grounded in established clinical guidelines, such as those from the American Heart Association (AHA) or European Society of Cardiology (ESC), fostered greater trust and transparency. Clinicians appreciated that these rule-based tools could be easily referenced and updated in line with evolving standards. P1 stated that "international guidelines always back you up", suggesting confidence in the system's recommendations. The ability to trace the logic of the visualisations back to a specific guideline was seen as particularly valuable for maintaining clinical assurance and regulatory compliance (P4).
 
 ### Role in Contemporary Computerised Interpretation of ECG
 
-Our visualisations were widely regarded as a valuable complement to Contemporary Computerised Interpretation of ECG (CIE). Clinicians reported that visualisations helped clarify algorithmic outputs, especially when the automated printout was ambiguous or difficult to interpret. As one participant explained, ``having both the interpretation and the visualisation is really useful [...] it lets you see what it's [the CIE] talking about -- or what you missed'' (P3). Visual cues were also seen as helpful for confirming or questioning the automated diagnosis, supporting more confident and informed decision-making (P4). One clinician highlighted that CIE often adds bias by suggesting a possible diagnosis rather than simply highlighting a feature, and added that a visualisation ``prompts a clinician in an unbiased way [...], because it doesn't take away the human's autonomy. It doesn't take away the human decision-making factor'' (P2).
+Our visualisations were widely regarded as a valuable complement to Contemporary Computerised Interpretation of ECG (CIE). Clinicians reported that visualisations helped clarify algorithmic outputs, especially when the automated printout was ambiguous or difficult to interpret. As one participant explained, "having both the interpretation and the visualisation is really useful [...] it lets you see what it's [the CIE] talking about -- or what you missed" (P3). Visual cues were also seen as helpful for confirming or questioning the automated diagnosis, supporting more confident and informed decision-making (P4). One clinician highlighted that CIE often adds bias by suggesting a possible diagnosis rather than simply highlighting a feature, and added that a visualisation "prompts a clinician in an unbiased way [...], because it doesn't take away the human's autonomy. It doesn't take away the human decision-making factor" (P2).
 
 ### Educational Value
 
-The educational benefits of visual cues were repeatedly highlighted. Clinicians described how these tools could support less experienced colleagues and trainees, helping them to develop ECG interpretation skills and clinical judgement. P2 remarked that ``prompting with cues actually will help in terms of training, learning, and retaining clinical autonomy''. The ability to toggle visualisations on and off was seen as particularly useful for educational purposes, allowing users to test their own interpretation before revealing the algorithm's guidance (P4).
+The educational benefits of visual cues were repeatedly highlighted. Clinicians described how these tools could support less experienced colleagues and trainees, helping them to develop ECG interpretation skills and clinical judgement. P2 remarked that "prompting with cues actually will help in terms of training, learning, and retaining clinical autonomy". The ability to toggle visualisations on and off was seen as particularly useful for educational purposes, allowing users to test their own interpretation before revealing the algorithm's guidance (P4).
 
 ### Universal Application and Pre-Hospital Utility
 
-There was a clear preference for universal application of these visual aids across all ECGs, rather than restricting them to borderline cases. Clinicians felt that routine use would help practitioners become familiar with the cues, standardise interpretation, and reduce variability in practice. This standardisation was also seen as enhancing patient safety by lowering the risk of missed or misclassified ST‑segment elevation and prompting timely escalation, particularly for less experienced staff (P3). Importantly, several clinicians noted that J‑point localisation can be difficult and ``subjective'' (P1), with further remarks on inter-observer variability: ``ask 20 consultants, you get 10 different J-points'' (P3) and baseline artefacts complicating identification (P2). The potential utility for pre-hospital providers was also highlighted, with one participant describing how a clear, rules-based visualisation could support rapid decision-making and streamline care pathways: ``this visualisation would be a very clear rules-based `Yes, this meets the criteria!'\,'' (P4).
+There was a clear preference for universal application of these visual aids across all ECGs, rather than restricting them to borderline cases. Clinicians felt that routine use would help practitioners become familiar with the cues, standardise interpretation, and reduce variability in practice. This standardisation was also seen as enhancing patient safety by lowering the risk of missed or misclassified ST‑segment elevation and prompting timely escalation, particularly for less experienced staff (P3). Importantly, several clinicians noted that J‑point localisation can be difficult and "subjective" (P1), with further remarks on inter-observer variability: "ask 20 consultants, you get 10 different J-points" (P3) and baseline artefacts complicating identification (P2). The potential utility for pre-hospital providers was also highlighted, with one participant describing how a clear, rules-based visualisation could support rapid decision-making and streamline care pathways: "this visualisation would be a very clear rules-based `Yes, this meets the criteria!'" (P4).
 
 ## Part II: Online Experiment with Lay Participants {#online-results}
 
@@ -926,7 +926,7 @@ There was a clear preference for universal application of these visual aids acro
 111 participants completed the \emph{Shading + Threshold Line + J-point Marker} experiment. 
 11 participants had their submissions rejected, with data from 100 being included in the full analysis.
 152 participants self-identified as male and 151 as female.
-Participants' mean age was 37.5 (${SD = 13.2}$) years.
+Participants' mean age was 37.5 ($SD = 13.2$) years.
 
 ```{r}
 #| label: fig-summary-vis
@@ -1115,7 +1115,9 @@ versus when they were absent, we built a linear mixed effects model
 whereby participant judgement speed was predicted by the presence or
 absence of a visualisation. A likelihood ratio test revealed that the
 model including reaction time explained significantly more variance than
-the null model (${\chi^2(1) = 27.56}$, ${p < .001}$). This
+the null model ($\chi^2$(`r in_paren(vis_nvis_RT_model.df)`) =
+`r printnum(vis_nvis_RT_model.Chisq)`, *p*
+`r printp(vis_nvis_RT_model.p, add_equals = TRUE)`). This
 model featured random intercepts for items and participants.
 Table \ref{tbl-vis-nvis-RT} shows mean reaction times for
 visualisation-present and visualisation-absent conditions, along with
@@ -1405,7 +1407,7 @@ This section presents findings from the clinical evaluation of the proposed ECG 
 
 ### Trust and Transparency Through Rule-based Visualisations
 
-Across all clinicians, visualisations based on clinical rules were seen as trustworthy precisely because they reflected current clinical guidelines. Participants described this transparency as useful and complementary to automated readouts, which can often be opaque or misleading. Unlike probabilistic models, the visualisations made their logic visible and clinicians highlighted the importance of being able to comprehend \textit{why} a computer suggested that there might be ST-elevation present rather than receiving an unintuitive text prompt. This traceability increased clinicians' confidence in the visualisations and can be seen as reducing a cognitive burden associated with the interpretation of algorithmic decisions. Several clinicians described the visualisations as providing ``back‑up'' evidence, helping them verify or challenge automated interpretations rather than replacing clinical judgement. This is particularly relevant given the well‑documented inconsistencies in existing CIE systems \cite{smulyan_computerized_2019, schlapfer_computer-interpreted_2017}.
+Across all clinicians, visualisations based on clinical rules were seen as trustworthy precisely because they reflected current clinical guidelines. Participants described this transparency as useful and complementary to automated readouts, which can often be opaque or misleading. Unlike probabilistic models, the visualisations made their logic visible and clinicians highlighted the importance of being able to comprehend \textit{why} a computer suggested that there might be ST-elevation present rather than receiving an unintuitive text prompt. This traceability increased clinicians' confidence in the visualisations and can be seen as reducing a cognitive burden associated with the interpretation of algorithmic decisions. Several clinicians described the visualisations as providing "back‑up" evidence, helping them verify or challenge automated interpretations rather than replacing clinical judgement. This is particularly relevant given the well‑documented inconsistencies in existing CIE systems \cite{smulyan_computerized_2019, schlapfer_computer-interpreted_2017}.
 
 ### J-point Localisation and the Potential for Standardisation
 
@@ -1453,7 +1455,7 @@ Similar patterns of performance are observed in the \emph{Shading + Threshold Li
 The opposite pattern of results was observed in the \emph{J-point Marker + Threshold Line} condition, where performance was best when ST-elevation was absent.
 
 We examine the potential mechanisms behind the \emph{Shading + Threshold Line} and \emph{Shading + Threshold Line + J-point Marker} conditions together given the similarity in participants' performance.
-In the training for both of these conditions, participants were instructed to classify the stimulus as ``ST-elevation'' when they could see any shading of the ST-segment.
+In the training for both of these conditions, participants were instructed to classify the stimulus as "ST-elevation" when they could see any shading of the ST-segment.
 When the stimulus in question is not a boundary case, the \emph{Shading} represents a heuristic relying on pre-attentive processing \cite{northdruft_1993} to cognitively support \cite{tory_2004} participants by removing the need to find and examine the J-point.
 The fact that the inclusion of the \emph{J-point Marker} in addition to \emph{Shading} benefits participants' performance, may be explained by the visual anchor provided by the \emph{J-point Marker} both for (1) boundary cases where ST-elevation is present but for which almost no shading is visible; and (2) for cases where ST-elevation is absent and thus, only the threshold line would be visible, with no shading.
 
