@@ -43,6 +43,7 @@ Files and folders used in generating manuscript:
  - `exp_data`: folder containing collected, anonymised data
  - `bibliography.bib` for referencing
  - `_extensions`: templates etc required for quarto to correctly render manuscript
+ - `renv.lock`: `renv` file used to capture package versions and dependencies
 
 Knitting the manuscript may take some time depending on the performance of your computer, especially if models are being re-built.
 
