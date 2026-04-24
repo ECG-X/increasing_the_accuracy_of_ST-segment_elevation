@@ -4,7 +4,7 @@ Files, data and scripts to fully recreate our two-part study investigating the u
 
 ## Data
 
-All experimental data for the three experiments described in part II of the paper are located in `.csv` format in the `data` folder.
+All experimental data for the three experiments described in part II of the paper are located in `.csv` format in the `exp_data` folder.
 
 ## Scripts
 
