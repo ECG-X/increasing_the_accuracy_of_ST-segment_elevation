@@ -18,4 +18,4 @@ COPY increasing_the_accuracy_of_ST-segment_elevation_cache/ ./increasing_the_acc
 COPY exp_data/ ./exp_data/
 COPY bibliography.bib ./
 COPY increasing_the_accuracy_of_ST-segment_elevation.qmd ./
-COPY sn-jnl.cls ./
+COPY plos2025.bst ./
